@@ -1,69 +1,84 @@
-import Image from "next/image";
+// FILE: nexq-marketing/app/page.tsx
+import Link from 'next/link';
 
-export default function Home() {
+export default function MarketingHome() {
+  // Dynamically resolve URLs based on the environment
+  const isDev = process.env.NODE_ENV === 'development';
+  const rootDomain = isDev ? 'localhost:3000' : 'nexqai.in';
+  const protocol = isDev ? 'http://' : 'https://';
+  
+  // The Core App Gateway URL
+  const APP_URL = `${protocol}app.${rootDomain}`;
+
+  const streams = [
+    { slug: "ca", name: "CA Final & Inter", desc: "ICAI 30:70 Hybrid + Red-Pen Step Marking & ₹1L Pass Challenge" },
+    { slug: "cs", name: "CS Executive & Professional", desc: "ICSI Case-Law & Drafting Rubric Evaluation in 60s" },
+    { slug: "cma", name: "CMA Inter & Final", desc: "ICMAI Step-Wise Numerical & Working Note Grader" },
+    { slug: "upsc", name: "UPSC CSE Mains & Prelims", desc: "GS I-IV 250-Word Structural & Multidimensional Grader" }
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between">
+      {/* HEADER */}
+      <header className="max-w-7xl mx-auto w-full flex justify-between items-center py-6 px-6 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold shadow-lg">N</div>
+          <span className="text-xl font-black tracking-tight">NexQ AI</span>
+        </div>
+        <div className="flex gap-4">
+          <Link 
+            href={`${APP_URL}/institute/login`} 
+            className="hidden md:block px-4 py-2 text-sm font-bold text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-950/40 transition-colors"
+          >
+            Coaching Portal
+          </Link>
+          <Link 
+            href={`${APP_URL}/login`} 
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-indigo-600/20"
+          >
+            Student Sign In
+          </Link>
+        </div>
+      </header>
+
+      {/* MAIN HERO & GRID */}
+      <main className="max-w-5xl mx-auto my-auto py-16 px-6 text-center space-y-16 w-full">
+        <div className="space-y-6">
+          <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            3-Model Consensus AI Exam Engine
+          </span>
+          <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight">
+            Select Your Exam Arena
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-slate-400 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+            Dedicated exam portals calibrated to official examining body rubrics, past papers, and step-marking schemes.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid sm:grid-cols-2 gap-6 text-left">
+          {streams.map((s) => (
+            <a
+              key={s.slug}
+              href={`${protocol}${s.slug}.${rootDomain}`}
+              className="p-8 rounded-3xl bg-slate-900 border border-slate-800 hover:border-indigo-500 transition-all group shadow-xl"
+            >
+              <div className="text-xl font-bold group-hover:text-indigo-400 transition-colors flex justify-between items-center">
+                {s.name}
+                <span className="inline-block transition-transform group-hover:translate-x-1 text-indigo-500">→</span>
+              </div>
+              <p className="text-sm text-slate-400 mt-3 leading-relaxed h-10">{s.desc}</p>
+              <div className="text-[11px] font-mono font-semibold text-indigo-400 mt-6 bg-indigo-500/10 inline-block px-3 py-1.5 rounded-lg border border-indigo-500/20">
+                {s.slug}.{rootDomain}
+              </div>
+            </a>
+          ))}
         </div>
       </main>
+
+      {/* FOOTER */}
+      <footer className="text-center text-xs text-slate-600 py-8 border-t border-slate-900">
+        © 2026 NexQ AI. High-stakes exam assessment engine.
+      </footer>
     </div>
   );
 }
