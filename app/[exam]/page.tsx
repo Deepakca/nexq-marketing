@@ -5,6 +5,7 @@ import { useState, use } from "react";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import { EXAM_CONFIG } from "../../config/exams";
 import Link from "next/link";
+import Script from "next/script";
 
 const IMAGES = {
   heroPreview: "/images/hero-preview.jpg",
@@ -33,6 +34,153 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
   const [activeDefectTab, setActiveDefectTab] = useState<"numerical" | "audit" | "mcq">("numerical");
   const [activeEngineTab, setActiveEngineTab] = useState<"hybrid" | "heatmap" | "leaderboard" | "planner">("hybrid");
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
+
+
+  // =========================================================================
+  // LIVE AUTHENTICATION STATE & API HANDLERS (CONNECTS TO api.nexqai.in)
+  // =========================================================================
+  const isDev = process.env.NODE_ENV === "development";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || (isDev ? "http://localhost:8000" : "https://api.nexqai.in");
+  const APP_BASE = isDev ? "http://localhost:3000" : "https://app.nexqai.in";
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authSuccess, setAuthSuccess] = useState("");
+
+  const handoffToDashboard = (accessToken: string) => {
+    window.location.href = `${APP_BASE}/login?sso_token=${encodeURIComponent(accessToken)}&exam=${data.slug}`;
+  };
+
+  const handleEmailOrRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+    setAuthSuccess("");
+
+    try {
+      if (authTab === "register") {
+        const regRes = await fetch(`${API_BASE}/api/v1/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) throw new Error(regData.detail || "Registration failed.");
+
+        // Automatically sign in right after registering
+        const loginRes = await fetch(`${API_BASE}/api/v1/auth/login/student`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const loginData = await loginRes.json();
+        if (loginRes.ok && loginData.access_token) {
+          handoffToDashboard(loginData.access_token);
+          return;
+        }
+        setAuthSuccess("Account created! Signing you in...");
+        setAuthTab("email");
+      } else {
+        const res = await fetch(`${API_BASE}/api/v1/auth/login/student`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            force_kick_otp: otpSent && otp ? otp : undefined,
+          }),
+        });
+        const resData = await res.json();
+
+        if (res.status === 409 && resData.requires_force_kick) {
+          setOtpSent(true);
+          setAuthError(
+            `Active session on another device. Enter the 6-digit code sent to WhatsApp (${resData.phone_masked}) to force-login.`
+          );
+          return;
+        }
+        if (!res.ok) throw new Error(resData.detail || "Invalid email or password.");
+
+        handoffToDashboard(resData.access_token);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSendWhatsAppOtp = async () => {
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanPhone.length < 10) {
+      setAuthError("Please enter a valid 10-digit WhatsApp number.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_number: `+91${cleanPhone}` }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Failed to send OTP.");
+      setOtpSent(true);
+      setAuthSuccess("6-digit OTP sent to your WhatsApp!");
+    } catch (err: any) {
+      setAuthError(err.message || "Failed to send OTP.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyWhatsAppOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const cleanPhone = phone.replace(/[^0-9]/g, "");
+      const res = await fetch(`${API_BASE}/api/v1/auth/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_number: `+91${cleanPhone}`, otp }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Invalid OTP.");
+      handoffToDashboard(resData.access_token);
+    } catch (err: any) {
+      setAuthError(err.message || "OTP verification failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleCallback = async (response: any) => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: response.credential }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Google sign-in failed.");
+      handoffToDashboard(resData.access_token);
+    } catch (err: any) {
+      setAuthError(err.message || "Google authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     if (latest > 350) {
@@ -1162,132 +1310,216 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
               </span>
             </div>
 
+            {/* Google GSI Script for 1-Click Google Login right on the Exam Page */}
+            <Script
+              src="https://accounts.google.com/gsi/client"
+              strategy="lazyOnload"
+              onReady={() => {
+                const win = window as any;
+                if (win.google && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                  win.google.accounts.id.initialize({
+                    client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+                    callback: handleGoogleCallback,
+                  });
+                  const btnEl = document.getElementById("marketing-google-btn");
+                  if (btnEl) {
+                    win.google.accounts.id.renderButton(btnEl, {
+                      theme: "filled_blue",
+                      size: "large",
+                      width: 330,
+                    });
+                  }
+                }
+              }}
+            />
+
             {/* 3-Way Tab Switcher */}
-            <div className="flex bg-[#060813] rounded-xl p-1 mb-5">
+            <div className="flex bg-[#060813] rounded-xl p-1 mb-4">
               <button
-                onClick={() => setAuthTab("email")}
+                type="button"
+                onClick={() => { setAuthTab("email"); setOtpSent(false); setAuthError(""); }}
                 className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-                  authTab === "email"
-                    ? "bg-[#5B4BFF] text-white"
-                    : "text-slate-400 hover:text-slate-200"
+                  authTab === "email" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 Email
               </button>
               <button
-                onClick={() => setAuthTab("phone")}
+                type="button"
+                onClick={() => { setAuthTab("phone"); setOtpSent(false); setAuthError(""); }}
                 className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-                  authTab === "phone"
-                    ? "bg-[#5B4BFF] text-white"
-                    : "text-slate-400 hover:text-slate-200"
+                  authTab === "phone" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 Phone OTP
               </button>
               <button
-                onClick={() => setAuthTab("register")}
+                type="button"
+                onClick={() => { setAuthTab("register"); setOtpSent(false); setAuthError(""); }}
                 className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-                  authTab === "register"
-                    ? "bg-[#5B4BFF] text-white"
-                    : "text-slate-400 hover:text-slate-200"
+                  authTab === "register" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 Register
               </button>
             </div>
 
-            <form className="space-y-4">
-              {authTab === "phone" ? (
+            {authError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+                {authError}
+              </div>
+            )}
+            {authSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs">
+                {authSuccess}
+              </div>
+            )}
+
+            {/* PHONE OTP FORM */}
+            {authTab === "phone" ? (
+              <form onSubmit={handleVerifyWhatsAppOtp} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">
-                    WhatsApp / Mobile Number
-                  </label>
-                  <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF] transition-colors">
+                  <label className="text-xs font-semibold text-slate-400">WhatsApp Number</label>
+                  <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
                     <span className="text-xs font-bold text-slate-400">+91</span>
                     <input
                       type="tel"
+                      required
+                      disabled={otpSent}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       placeholder="98765 43210"
                       className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
                     />
                   </div>
                 </div>
-              ) : (
-                <>
+
+                {otpSent && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-400">
-                      Email Address
-                    </label>
-                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF] transition-colors">
-                      <svg
-                        className="w-5 h-5 text-slate-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
+                    <label className="text-xs font-semibold text-slate-400">Enter 6-Digit WhatsApp OTP</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl text-center text-lg font-mono tracking-widest text-white outline-none focus:border-[#5B4BFF]"
+                    />
+                  </div>
+                )}
+
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    disabled={authLoading}
+                    onClick={handleSendWhatsAppOtp}
+                    className="w-full py-3.5 mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg transition-all cursor-pointer"
+                  >
+                    {authLoading ? "Sending OTP..." : "Send WhatsApp OTP"}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg transition-all cursor-pointer"
+                  >
+                    {authLoading ? "Verifying..." : "Verify & Enter Arena →"}
+                  </button>
+                )}
+              </form>
+            ) : (
+              /* EMAIL LOGIN & REGISTER FORM */
+              <form onSubmit={handleEmailOrRegisterSubmit} className="space-y-4">
+                {authTab === "register" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Full Name</label>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
                       <input
-                        type="email"
-                        placeholder="scholar@domain.com"
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Deepak Bohra"
                         className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
                       />
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-semibold text-slate-400">
-                        Password
-                      </label>
-                      <a
-                        href={`https://app.nexqai.in/forgot-password?exam=${data.slug}`}
-                        className="text-xs text-[#5B4BFF] hover:underline"
-                      >
-                        Forgot?
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF] transition-colors">
-                      <svg
-                        className="w-5 h-5 text-slate-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                {!otpSent ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Email Address</label>
+                      <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="student@mcqengine.com"
+                          className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
                         />
-                      </svg>
-                      <input
-                        type="password"
-                        placeholder="••••••••••••"
-                        className="bg-transparent w-full text-sm text-white tracking-widest placeholder-slate-600 outline-none"
-                      />
+                      </div>
                     </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-semibold text-slate-400">Password</label>
+                        <a
+                          href={`${APP_BASE}/login?exam=${data.slug}`}
+                          className="text-xs text-[#5B4BFF] hover:underline"
+                        >
+                          Forgot?
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                        <input
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          className="bg-transparent w-full text-sm text-white tracking-widest placeholder-slate-600 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">
+                      Enter 6-Digit Force-Logout Override Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl text-center text-lg font-mono tracking-widest text-white outline-none focus:border-[#5B4BFF]"
+                    />
                   </div>
-                </>
-              )}
+                )}
 
-              <a
-                href={`https://app.nexqai.in/login?exam=${data.slug}&mode=${authTab}`}
-                className="w-full flex items-center justify-center py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all"
-              >
-                {authTab === "register"
-                  ? `Claim 30 Free Tokens & Register`
-                  : authTab === "phone"
-                  ? "Send WhatsApp OTP"
-                  : "Sign In to Arena"}
-              </a>
-            </form>
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                >
+                  {authLoading
+                    ? "Authenticating..."
+                    : otpSent
+                    ? "Verify & Force Login"
+                    : authTab === "register"
+                    ? "Claim 30 Free Tokens & Register"
+                    : "Sign In to Arena"}
+                </button>
+              </form>
+            )}
 
-            <div className="flex items-center gap-4 my-5">
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-4">
               <div className="flex-1 h-px bg-slate-800" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Or Continue With
@@ -1295,8 +1527,15 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
               <div className="flex-1 h-px bg-slate-800" />
             </div>
 
+            {/* Target element rendered by Google GSI Script */}
+            <div id="marketing-google-btn" className="w-full flex justify-center mb-2 min-h-[44px]"></div>
+
+            {/* Fallback button if Google script is delayed */}
+
+              
+
             <a
-              href={`https://app.nexqai.in/login?exam=${data.slug}&provider=google`}
+              href={`${APP_BASE}/login?exam=${data.slug}&provider=google`}
               className="w-full flex items-center justify-between px-4 py-3 bg-[#1A73E8] hover:bg-blue-600 rounded-xl transition-colors"
             >
               <div className="flex flex-col text-left">
@@ -1326,7 +1565,7 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
             </a>
 
             <a
-              href="https://app.nexqai.in/institute/login"
+              href={`${APP_BASE}/institute/login`}
               className="block text-center mt-5 text-[11px] text-[#5B4BFF] hover:text-indigo-400 transition-colors"
             >
               Institute or Organization Admin? Log in here →
