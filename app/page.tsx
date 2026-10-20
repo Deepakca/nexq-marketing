@@ -22,8 +22,7 @@ export default function MarketingHome() {
   // The Core App Gateway URL
   const APP_URL = `${protocol}app.${rootDomain}`;
 
-  // Replace with your actual YouTube Video ID once uploaded
-  const YOUTUBE_VIDEO_ID = "YOUR_YOUTUBE_VIDEO_ID";
+
 
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"ca" | "cs" | "cma" | "upsc">("ca");
@@ -713,7 +712,7 @@ export default function MarketingHome() {
       </main>
 
       {/* ================================================================= */}
-      {/* YOUTUBE VIDEO LIGHTBOX MODAL                                      */}
+      {/* LOCAL VIDEO LIGHTBOX MODAL                                        */}
       {/* ================================================================= */}
       {isVideoOpen && (
         <div
@@ -736,14 +735,16 @@ export default function MarketingHome() {
                 ✕ Close
               </button>
             </div>
-            <div className="aspect-video w-full bg-black">
-              <iframe
-                className="w-full h-full"
-                src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&rel=0`}
-                title="NexQ AI ₹1 Lakh Pass Challenge Video"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+            <div className="aspect-video w-full bg-black flex items-center justify-center">
+              <video
+                src="/promo-video.mp4"
+                controls
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              >
+                Your browser does not support the video tag.
+              </video>
             </div>
           </div>
         </div>
