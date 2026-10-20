@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-mot
 import { EXAM_CONFIG } from "../../config/exams";
 import Link from "next/link";
 import Script from "next/script";
+import { CheckCircle2, Award, BookOpen, Layers, ShieldCheck, Zap, Trophy, BarChart3, Calendar, Eye, EyeOff } from "lucide-react";
 
 const IMAGES = {
   heroPreview: "/images/hero-preview.jpg",
@@ -34,7 +35,7 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
   const [activeDefectTab, setActiveDefectTab] = useState<"numerical" | "audit" | "mcq">("numerical");
   const [activeEngineTab, setActiveEngineTab] = useState<"hybrid" | "heatmap" | "leaderboard" | "planner">("hybrid");
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
-
+  
 
   // =========================================================================
   // LIVE AUTHENTICATION STATE & API HANDLERS (CONNECTS TO api.nexqai.in)
@@ -52,6 +53,7 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- ADD THIS LINE
 
   const handoffToDashboard = (accessToken: string) => {
     window.location.href = `${APP_BASE}/login?sso_token=${encodeURIComponent(accessToken)}&exam=${data.slug}`;
