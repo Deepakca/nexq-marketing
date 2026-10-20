@@ -36,7 +36,7 @@ export default function MarketingHome() {
       badgeStyle: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
       borderHover: "hover:border-indigo-500 hover:shadow-indigo-500/10",
       rubric: "ICAI 30:70 Hybrid Scheme",
-      desc: "ICAI 30:70 Hybrid + Red-Pen Step Marking & ₹1L Pass Challenge. Evaluates Ind AS, SA citations, and working notes in 60s.",
+      desc: "ICAI 30:70 Hybrid + Red-Pen Step Marking & ₹1L Pass Challenge. Evaluates Ind AS, SA citations, and working notes in just 1 hr.",
       highlights: ["Ind AS & SA Citation Audit", "Step-Wise Working Note Marks", "₹1L Pass Guarantee Track"],
     },
     {
@@ -46,7 +46,7 @@ export default function MarketingHome() {
       badgeStyle: "bg-purple-500/15 text-purple-300 border-purple-500/30",
       borderHover: "hover:border-purple-500 hover:shadow-purple-500/10",
       rubric: "ICSI Drafting & Precedent Rubric",
-      desc: "ICSI Case-Law & Drafting Rubric Evaluation in 60s. Checks board resolutions, legal language, and NCLT/SC citations.",
+      desc: "ICSI Case-Law & Drafting Rubric Evaluation in 1 hour. Checks board resolutions, legal language, and NCLT/SC citations.",
       highlights: ["Resolution Format Grader", "Companies Act Section Check", "Case-Law Precedent Matcher"],
     },
     {
@@ -218,13 +218,13 @@ export default function MarketingHome() {
           <div className="max-w-6xl mx-auto text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              3-Model Consensus AI Exam Engine • Evaluation in 60s
+              3-Model Consensus AI Exam Engine • Evaluation in just 1 hr
             </div>
 
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.08] tracking-tight max-w-5xl mx-auto">
               Stop Waiting 14 Days for Test Series Feedback.{" "}
               <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-emerald-300 bg-clip-text text-transparent">
-                Grade Handwritten Answers in 60s.
+                Grade Handwritten Answers in just 1 hr.
               </span>
             </h1>
 
@@ -364,7 +364,7 @@ export default function MarketingHome() {
                   </div>
                   <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
                     <span className="group-hover:underline">Launch {s.slug.toUpperCase()} Portal</span>
-                    <span className="text-slate-500 font-normal">Instant 60s Grading →</span>
+                    <span className="text-slate-500 font-normal">Instant 1 hr Grading →</span>
                   </div>
                 </div>
               </a>
@@ -726,7 +726,7 @@ export default function MarketingHome() {
             <div className="flex justify-between items-center px-6 py-4 bg-slate-950 border-b border-slate-800">
               <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                NexQ AI — ₹1 Lakh Pass Challenge & 60s Grading Demo
+                NexQ AI — ₹1 Lakh Pass Challenge & 1 hr Grading Demo
               </span>
               <button
                 onClick={() => setIsVideoOpen(false)}
