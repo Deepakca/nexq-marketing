@@ -46,7 +46,7 @@ export default function MarketingHome() {
       badgeStyle: "bg-purple-500/15 text-purple-300 border-purple-500/30",
       borderHover: "hover:border-purple-500 hover:shadow-purple-500/10",
       rubric: "ICSI Drafting & Precedent Rubric",
-      desc: "ICSI Case-Law & Drafting Rubric Evaluation in 1 hour. Checks board resolutions, legal language, and NCLT/SC citations.",
+      desc: "ICSI Case-Law & Drafting Rubric Evaluation in 1 hr. Checks board resolutions, legal language, and NCLT/SC citations.",
       highlights: ["Resolution Format Grader", "Companies Act Section Check", "Case-Law Precedent Matcher"],
     },
     {
