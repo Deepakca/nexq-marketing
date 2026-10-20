@@ -181,7 +181,7 @@ export default function MarketingHome() {
               {streams.map((s) => (
                 <a
                   key={s.slug}
-                  href={`${protocol}${s.slug}.${rootDomain}`}
+                  href={`/${s.slug}`}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                 >
                   {s.slug.toUpperCase()} Arena
@@ -327,7 +327,7 @@ export default function MarketingHome() {
             {streams.map((s) => (
               <a
                 key={s.slug}
-                href={`${protocol}${s.slug}.${rootDomain}`}
+                href={`/${s.slug}`}
                 className={`p-8 rounded-3xl bg-slate-900/90 border border-slate-800 ${s.borderHover} transition-all duration-300 group shadow-2xl flex flex-col justify-between hover:-translate-y-1`}
               >
                 <div>
