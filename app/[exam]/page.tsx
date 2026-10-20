@@ -1,13 +1,11 @@
 // FILE: ./app/[exam]/page.tsx
-"use client"; // Required for scroll events and Framer Motion
+"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { EXAM_CONFIG } from "../../config/exams";
 import Link from "next/link";
-import { use } from "react";
 
-// The 5 images mapped
 const IMAGES = {
   heroPreview: "/images/hero-preview.jpg",
   consensusArchitecture: "/images/consensus-architecture.jpg",
@@ -16,21 +14,21 @@ const IMAGES = {
 };
 
 export default function StylishExamPage({ params }: { params: Promise<{ exam: string }> }) {
-  // Unwrap Next.js 15 Promise params
   const { exam } = use(params);
   const data = EXAM_CONFIG[exam.toLowerCase()];
 
-  // State to handle the collapsing right panel
+  // Panel Animation State
   const [isScrolled, setIsScrolled] = useState(false);
   const [isPanelForcedOpen, setIsPanelForcedOpen] = useState(false);
 
-  // Detect scroll position to automatically collapse the login panel
+  // Login Form Tab State
+  const [authTab, setAuthTab] = useState<"email" | "phone" | "register">("email");
+
   useEffect(() => {
     const handleScroll = () => {
-      // Collapse when user scrolls past 150px
       if (window.scrollY > 150) {
         setIsScrolled(true);
-        setIsPanelForcedOpen(false); // reset manual override
+        setIsPanelForcedOpen(false);
       } else {
         setIsScrolled(false);
       }
@@ -44,19 +42,16 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
   const isPanelCollapsed = isScrolled && !isPanelForcedOpen;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex overflow-x-hidden">
+    <div className="min-h-screen bg-[#060813] text-white flex overflow-x-hidden">
       
       {/* ========================================== */}
       {/* LEFT PANEL: SCROLLING MARKETING CONTENT      */}
       {/* ========================================== */}
       <motion.div
         className="flex-1 min-h-screen pb-32"
-        animate={{
-          marginRight: isPanelCollapsed ? "4rem" : "30%", // 4rem = width of collapsed strip
-        }}
+        animate={{ marginRight: isPanelCollapsed ? "4rem" : "30%" }}
         transition={{ type: "spring", stiffness: 200, damping: 25 }}
       >
-        {/* Header inside left panel */}
         <header className="p-6 flex justify-between items-center max-w-5xl mx-auto">
           <Link href="/" className="font-black text-xl flex items-center gap-2">
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">N</div>
@@ -68,7 +63,6 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
         </header>
 
         <div className="max-w-5xl mx-auto px-8 sm:px-12 space-y-32 mt-12">
-          
           {/* SECTION 1: HERO */}
           <section className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
@@ -81,9 +75,9 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
             <p className="text-xl text-slate-400 max-w-2xl leading-relaxed">
               {data.description}
             </p>
-            <div className="relative w-full aspect-[21/9] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl shadow-indigo-900/20 mt-12">
+            <div className="relative w-full aspect-[21/9] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl mt-12">
               <img src={IMAGES.heroPreview} alt="AI Grading" className="w-full h-full object-cover opacity-90" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#060813] to-transparent" />
             </div>
           </section>
 
@@ -116,7 +110,7 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
             </div>
           </section>
 
-          {/* SECTION 4: ₹1L CHALLENGE */}
+          {/* SECTION 4: CHALLENGE */}
           <section className="rounded-3xl bg-gradient-to-br from-emerald-950/40 to-slate-950 border border-emerald-500/30 p-12 grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-black">ULTIMATE GUARANTEE</span>
@@ -124,26 +118,22 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
               <p className="text-slate-400">Clear the NexQ mock benchmarks. Pass your official {data.examBody} exam, or claim up to ₹1 Lakh under the challenge guarantee.</p>
             </div>
             <div className="flex justify-center">
-              <img src={IMAGES.passChallengeBadge} alt="Guarantee" className="w-64 h-64 rounded-2xl shadow-2xl shadow-emerald-900/50" />
+              <img src={IMAGES.passChallengeBadge} alt="Guarantee" className="w-64 h-64 rounded-2xl shadow-2xl" />
             </div>
           </section>
-
         </div>
       </motion.div>
 
       {/* ========================================== */}
-      {/* RIGHT PANEL: STICKY LOGIN / ENROLL PANE    */}
+      {/* RIGHT PANEL: LIVE LOGIN UI BINDING           */}
       {/* ========================================== */}
       <AnimatePresence initial={false}>
         <motion.div
-          className="fixed top-0 right-0 h-screen bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col"
+          className="fixed top-0 right-0 h-screen bg-[#0C1222] border-l border-slate-800/80 shadow-2xl z-50 flex flex-col"
           initial={false}
-          animate={{
-            width: isPanelCollapsed ? "4rem" : "30%",
-          }}
+          animate={{ width: isPanelCollapsed ? "4rem" : "30%" }}
           transition={{ type: "spring", stiffness: 200, damping: 25 }}
         >
-          {/* STATE A: COLLAPSED STRIP */}
           {isPanelCollapsed ? (
             <div 
               className="w-full h-full flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-colors group relative"
@@ -151,15 +141,12 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
             >
               <div className="absolute top-6 w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
               <div className="rotate-90 whitespace-nowrap text-sm font-black tracking-widest text-slate-400 group-hover:text-indigo-400 transition-colors">
-                ▶ OPEN {data.examBody} LOGIN
+                ▶ OPEN LOGIN
               </div>
             </div>
           ) : (
-            
-          /* STATE B: FULL OPEN LOGIN/ENROLL PANE */
-            <div className="w-full h-full flex flex-col p-8 lg:p-12 overflow-y-auto">
+            <div className="w-full h-full flex flex-col items-center justify-center p-8 overflow-y-auto relative">
               
-              {/* Optional Close Button on Mobile/Scrolled */}
               {isScrolled && (
                 <button 
                   onClick={() => setIsPanelForcedOpen(false)}
@@ -169,43 +156,89 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
                 </button>
               )}
 
-              <div className="mt-auto mb-12 space-y-8">
-                <div>
-                  <span className="text-xs font-mono text-indigo-400 block mb-2">{data.examBody} ARENA GATEWAY</span>
-                  <h2 className="text-3xl font-black">Enter Arena</h2>
-                </div>
-
-                {data.activeCampaign?.enabled && (
-                  <div className="p-4 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-200 text-sm font-bold">
-                    {data.activeCampaign.bannerText}
-                  </div>
-                )}
-
-                {/* Mock Login Form / Call to Action */}
-                <div className="space-y-4">
-                  <a 
-                    href={data.checkoutUrl}
-                    className="w-full flex items-center justify-center py-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-black shadow-lg shadow-indigo-600/20 transition-all"
-                  >
-                    Enroll Now — {data.pricing}
-                  </a>
-                  <a 
-                    href={`https://app.nexqai.in/login?exam=${data.slug}`}
-                    className="w-full flex items-center justify-center py-4 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl font-bold text-slate-300 transition-all"
-                  >
-                    Already Enrolled? Sign In
-                  </a>
-                </div>
+              {/* Login Container exact matching the screenshot */}
+              <div className="w-full max-w-[400px] bg-[#12182B] border border-slate-800 rounded-3xl p-6 shadow-2xl">
                 
-                <p className="text-xs text-center text-slate-500 pt-4">
-                  Secured by NexQ AI 256-bit encryption.
-                </p>
+                {/* 3-Way Tab Switcher */}
+                <div className="flex bg-[#060813] rounded-xl p-1 mb-8">
+                  <button 
+                    onClick={() => setAuthTab("email")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${authTab === "email" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    Email
+                  </button>
+                  <button 
+                    onClick={() => setAuthTab("phone")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${authTab === "phone" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    Phone OTP
+                  </button>
+                  <button 
+                    onClick={() => setAuthTab("register")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${authTab === "register" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    Register
+                  </button>
+                </div>
+
+                <form className="space-y-5">
+                  {/* Email Input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Email Address</label>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-indigo-500 transition-colors">
+                      <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                      <input type="email" placeholder="scholar@domain.com" className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none" />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-slate-400">Password</label>
+                      <a href="#" className="text-xs text-[#5B4BFF] hover:underline">Forgot?</a>
+                    </div>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-indigo-500 transition-colors">
+                      <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                      <input type="password" placeholder="••••••••••••" className="bg-transparent w-full text-sm text-white tracking-widest placeholder-slate-600 outline-none" />
+                    </div>
+                  </div>
+
+                  {/* Main Sign In Button */}
+                  <button type="button" className="w-full py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all">
+                    Sign In
+                  </button>
+                </form>
+
+                {/* Divider */}
+                <div className="flex items-center gap-4 my-6">
+                  <div className="flex-1 h-px bg-slate-800"></div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Or Continue With</span>
+                  <div className="flex-1 h-px bg-slate-800"></div>
+                </div>
+
+                {/* Google Sign In Replica */}
+                <button type="button" className="w-full flex items-center justify-between px-4 py-3 bg-[#1A73E8] hover:bg-blue-600 rounded-xl transition-colors">
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-bold text-white">Sign in with Google</span>
+                  </div>
+                  <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                  </div>
+                </button>
+
+                {/* Institute Admin Link */}
+                <a 
+                  href="https://app.nexqai.in/institute/login" 
+                  className="block text-center mt-8 text-[11px] text-[#5B4BFF] hover:text-indigo-400 transition-colors"
+                >
+                  Institute or Organization Admin? Log in here →
+                </a>
+
               </div>
             </div>
           )}
         </motion.div>
       </AnimatePresence>
-
     </div>
   );
 }
