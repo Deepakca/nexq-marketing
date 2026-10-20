@@ -30,25 +30,26 @@ export default async function ExamLandingPage({ params }: { params: Promise<{ ex
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-4xl mx-auto py-24 px-6 text-center space-y-8">
-        <h1 className="text-5xl font-black">{data.title}</h1>
-        <p className="text-xl text-slate-400">{data.description}</p>
-        
-        <div className="flex justify-center gap-4 pt-6">
-          <a href={data.checkoutUrl} className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg transition-transform hover:scale-105">
-            Enroll Now — {data.pricing}
-          </a>
-        </div>
+      <main className="max-w-6xl mx-auto py-16 px-6 space-y-24">
+        {/* Cinematic Hero */}
+        <section className="text-center space-y-8 relative pb-12 border-b border-slate-900">
+             <h1 className="text-5xl sm:text-7xl font-black">{data.title}</h1>
+             <p className="text-xl text-slate-400 max-w-2xl mx-auto">{data.description}</p>
+             <div className="flex justify-center gap-4 pt-6">
+                <a href={data.checkoutUrl} className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow-lg transition-transform hover:scale-105">
+                  Enroll in {data.examBody} Arena
+                </a>
+             </div>
+             {/* Reused Hero Image Wrapper */}
+             <div className="mt-16 w-full max-w-4xl mx-auto rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
+                 <img src="/images/hero-preview.jpg" alt="AI Evaluation" className="w-full h-auto opacity-90" />
+             </div>
+        </section>
 
-        {/* Features List */}
-        <div className="pt-16 grid sm:grid-cols-3 gap-6 text-left">
-          {data.features.map((feature: string, idx: number) => (
-            <div key={idx} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl">
-              <div className="text-indigo-400 font-black mb-2">✓</div>
-              <div className="text-sm font-bold">{feature}</div>
-            </div>
-          ))}
-        </div>
+        {/* Dynamic Bento Grid based on features */}
+        <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Map through data.features here and use premium styling like the home page */}
+        </section>
       </main>
     </div>
   );
