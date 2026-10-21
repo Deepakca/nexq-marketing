@@ -1475,16 +1475,43 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
                           Forgot?
                         </a>
                       </div>
-                      <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                      
+                      {/* --- UPDATED PASSWORD INPUT WITH EYE TOGGLE --- */}
+                      <div className="relative flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF] transition-colors">
+                        <svg
+                          className="w-5 h-5 text-slate-400 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                          />
+                        </svg>
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••••••"
-                          className="bg-transparent w-full text-sm text-white tracking-widest placeholder-slate-600 outline-none"
+                          className="bg-transparent flex-1 min-w-0 text-sm text-white placeholder-slate-600 outline-none rounded-md px-1 [&:-webkit-autofill]:[-webkit-text-fill-color:#ffffff] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="shrink-0 z-10 p-1 rounded-md text-slate-300 hover:text-white hover:bg-slate-800/80 transition-colors focus:outline-none cursor-pointer"
+                          tabIndex={-1}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
+                        
+                      {/* -------------------------------------------- */}
+                      
                     </div>
                   </>
                 ) : (

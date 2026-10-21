@@ -1,16 +1,13 @@
 // FILE: ./middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// Subdomains that belong to system/AWS, not coaching institutes
-const RESERVED_SUBDOMAINS = new Set([
-  "www", "app", "api", "admin", "auth", "ca", "cs", "cma", "upsc", "institute"
-]);
+const RESERVED_SUBDOMAINS = new Set(["www", "app", "api", "admin", "auth", "institute"]);
+const EXAM_SUBDOMAINS = new Set(["ca", "cs", "cma", "upsc"]);
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const hostname = req.headers.get("host") || "";
 
-  // Extract subdomain (e.g., "jkshah" from "jkshah.nexqai.in")
   const currentHost = hostname.replace(`:${url.port}`, "");
   const isLocalhost = currentHost.includes("localhost");
   const baseDomain = isLocalhost ? "localhost" : "nexqai.in";
@@ -20,7 +17,7 @@ export function middleware(req: NextRequest) {
     subdomain = currentHost.replace(`.${baseDomain}`, "").toLowerCase();
   }
 
-  // 1. Skip system paths, static assets, and reserved subdomains
+  // 1. Skip system paths and static assets
   if (
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/images") ||
@@ -30,23 +27,26 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Subdomain detected -> Rewrite to Institute Route
+  // 2. Exam Subdomain Consolidation (e.g., ca.nexqai.in -> nexqai.in/ca)
+  if (subdomain && EXAM_SUBDOMAINS.has(subdomain)) {
+    const protocol = isLocalhost ? "http://" : "https://";
+    const targetPath = `/${subdomain}${url.pathname === "/" ? "" : url.pathname}`;
+    return NextResponse.redirect(new URL(`${protocol}${baseDomain}${targetPath}`, req.url), 301);
+  }
+
+  // 3. Subdomain detected -> Rewrite to Institute Route
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
-    // Keeps URL as jkshah.nexqai.in, but loads app/i/[slug]/page.tsx
     return NextResponse.rewrite(new URL(`/i/${subdomain}${url.pathname}`, req.url));
   }
 
-  // 3. Prevent direct access to /i/[slug] -> Force Subdomain redirect for authenticity
+  // 4. Direct /i/[slug] access -> Canonical Subdomain redirect
   if (url.pathname.startsWith("/i/")) {
     const parts = url.pathname.split("/").filter(Boolean);
     const instituteSlug = parts[1];
 
-    if (instituteSlug && !RESERVED_SUBDOMAINS.has(instituteSlug)) {
+    if (instituteSlug && !RESERVED_SUBDOMAINS.has(instituteSlug) && !EXAM_SUBDOMAINS.has(instituteSlug)) {
       const protocol = isLocalhost ? "http://" : "https://";
-      return NextResponse.redirect(
-        new URL(`${protocol}${instituteSlug}.${baseDomain}/`, req.url),
-        301
-      );
+      return NextResponse.redirect(new URL(`${protocol}${instituteSlug}.${baseDomain}/`, req.url), 301);
     }
   }
 

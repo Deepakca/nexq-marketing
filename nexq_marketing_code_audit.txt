@@ -7,16 +7,13 @@ FILE: ./middleware.ts
 // FILE: ./middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// Subdomains that belong to system/AWS, not coaching institutes
-const RESERVED_SUBDOMAINS = new Set([
-  "www", "app", "api", "admin", "auth", "ca", "cs", "cma", "upsc", "institute"
-]);
+const RESERVED_SUBDOMAINS = new Set(["www", "app", "api", "admin", "auth", "institute"]);
+const EXAM_SUBDOMAINS = new Set(["ca", "cs", "cma", "upsc"]);
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const hostname = req.headers.get("host") || "";
 
-  // Extract subdomain (e.g., "jkshah" from "jkshah.nexqai.in")
   const currentHost = hostname.replace(`:${url.port}`, "");
   const isLocalhost = currentHost.includes("localhost");
   const baseDomain = isLocalhost ? "localhost" : "nexqai.in";
@@ -26,7 +23,7 @@ export function middleware(req: NextRequest) {
     subdomain = currentHost.replace(`.${baseDomain}`, "").toLowerCase();
   }
 
-  // 1. Skip system paths, static assets, and reserved subdomains
+  // 1. Skip system paths and static assets
   if (
     url.pathname.startsWith("/_next") ||
     url.pathname.startsWith("/images") ||
@@ -36,23 +33,26 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Subdomain detected -> Rewrite to Institute Route
+  // 2. Exam Subdomain Consolidation (e.g., ca.nexqai.in -> nexqai.in/ca)
+  if (subdomain && EXAM_SUBDOMAINS.has(subdomain)) {
+    const protocol = isLocalhost ? "http://" : "https://";
+    const targetPath = `/${subdomain}${url.pathname === "/" ? "" : url.pathname}`;
+    return NextResponse.redirect(new URL(`${protocol}${baseDomain}${targetPath}`, req.url), 301);
+  }
+
+  // 3. Subdomain detected -> Rewrite to Institute Route
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
-    // Keeps URL as jkshah.nexqai.in, but loads app/i/[slug]/page.tsx
     return NextResponse.rewrite(new URL(`/i/${subdomain}${url.pathname}`, req.url));
   }
 
-  // 3. Prevent direct access to /i/[slug] -> Force Subdomain redirect for authenticity
+  // 4. Direct /i/[slug] access -> Canonical Subdomain redirect
   if (url.pathname.startsWith("/i/")) {
     const parts = url.pathname.split("/").filter(Boolean);
     const instituteSlug = parts[1];
 
-    if (instituteSlug && !RESERVED_SUBDOMAINS.has(instituteSlug)) {
+    if (instituteSlug && !RESERVED_SUBDOMAINS.has(instituteSlug) && !EXAM_SUBDOMAINS.has(instituteSlug)) {
       const protocol = isLocalhost ? "http://" : "https://";
-      return NextResponse.redirect(
-        new URL(`${protocol}${instituteSlug}.${baseDomain}/`, req.url),
-        301
-      );
+      return NextResponse.redirect(new URL(`${protocol}${instituteSlug}.${baseDomain}/`, req.url), 301);
     }
   }
 
@@ -252,7 +252,6 @@ FILE: ./app/page.tsx
 import { useState } from "react";
 import Link from "next/link";
 
-// Central map of your 5 generated images in public/images/
 const IMAGES = {
   heroPreview: "/images/hero-preview.jpg",
   consensusArchitecture: "/images/consensus-architecture.jpg",
@@ -262,15 +261,10 @@ const IMAGES = {
 };
 
 export default function MarketingHome() {
-  // Dynamically resolve URLs based on the environment
   const isDev = process.env.NODE_ENV === "development";
   const rootDomain = isDev ? "localhost:3000" : "nexqai.in";
   const protocol = isDev ? "http://" : "https://";
-
-  // The Core App Gateway URL
   const APP_URL = `${protocol}app.${rootDomain}`;
-
-
 
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"ca" | "cs" | "cma" | "upsc">("ca");
@@ -279,23 +273,33 @@ export default function MarketingHome() {
   const streams = [
     {
       slug: "ca",
-      name: "CA Final & Inter",
-      badge: "₹1L Pass Challenge Active",
+      name: "CA Final, Inter & Foundation",
+      badge: "₹1L Pass Challenge + 30 Free Tokens",
       badgeStyle: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
       borderHover: "hover:border-indigo-500 hover:shadow-indigo-500/10",
-      rubric: "ICAI 30:70 Hybrid Scheme",
-      desc: "ICAI 30:70 Hybrid + Red-Pen Step Marking & ₹1L Pass Challenge. Evaluates Ind AS, SA citations, and working notes in just 1 hr.",
-      highlights: ["Ind AS & SA Citation Audit", "Step-Wise Working Note Marks", "₹1L Pass Guarantee Track"],
+      rubric: "ICAI 30:70 Hybrid Scheme (Papers 1–6 + IBS)",
+      desc: "ICAI 30:70 Case-Scenario MCQ + Red-Pen Step Marking. Audits Ind AS, SA keywords, and 300-DPI working notes. Includes Official ICAI MTP Series I & II grading.",
+      highlights: [
+        "Ind AS & SA Citation Audit",
+        "300-DPI Working Note Zoom",
+        "Printable ICAI Ruled Booklet",
+        "Attempt-Scoped Finance Act Engine",
+      ],
     },
     {
       slug: "cs",
       name: "CS Executive & Professional",
-      badge: "ICSI Case-Law Engine",
+      badge: "ICSI 2022 Syllabus Engine",
       badgeStyle: "bg-purple-500/15 text-purple-300 border-purple-500/30",
       borderHover: "hover:border-purple-500 hover:shadow-purple-500/10",
-      rubric: "ICSI Drafting & Precedent Rubric",
-      desc: "ICSI Case-Law & Drafting Rubric Evaluation in 1 hr. Checks board resolutions, legal language, and NCLT/SC citations.",
-      highlights: ["Resolution Format Grader", "Companies Act Section Check", "Case-Law Precedent Matcher"],
+      rubric: "ICSI 20:80 Drafting & Precedent Rubric",
+      desc: "Evaluates Company Law board resolutions, legal drafting language, Secretarial Standards (SS-1/SS-2), and NCLT/SC citations with line-by-line precision.",
+      highlights: [
+        "Resolution Format Grader",
+        "Companies Act Section Check",
+        "Bookish Legal Language Fix",
+        "Unlimited Case-Law MCQs",
+      ],
     },
     {
       slug: "cma",
@@ -303,45 +307,118 @@ export default function MarketingHome() {
       badge: "Step-Wise Numerical Grader",
       badgeStyle: "bg-amber-500/15 text-amber-300 border-amber-500/30",
       borderHover: "hover:border-amber-500 hover:shadow-amber-500/10",
-      rubric: "ICMAI Costing & Numerical Scheme",
-      desc: "ICMAI Step-Wise Numerical & Working Note Grader. Awards partial step marks even when final balance totals diverge.",
-      highlights: ["Cost Sheet Formula Audit", "Variance Step Marking", "CAS Standard Verification"],
+      rubric: "ICMAI Syllabus 2022 Costing Scheme",
+      desc: "Inspects every Cost Sheet formula, marginal/standard costing variance table, and CAS 1–24 citation—awarding step marks even when final balance totals diverge.",
+      highlights: [
+        "Cost Sheet Formula Audit",
+        "Variance Table Step Marks",
+        "CAS 1–24 Verification",
+        "Custom Mock PDF Builder",
+      ],
     },
     {
       slug: "upsc",
       name: "UPSC CSE Mains & Prelims",
-      badge: "GS I-IV & Essay Evaluator",
+      badge: "QCAB + Dual-Axis Current Affairs",
       badgeStyle: "bg-sky-500/15 text-sky-300 border-sky-500/30",
       borderHover: "hover:border-sky-500 hover:shadow-sky-500/10",
-      rubric: "UPSC 150/250-Word Structural Rubric",
-      desc: "GS I-IV 250-Word Structural & Multidimensional Grader. Audits directive command words, intro, body, and way forward.",
-      highlights: ["Directive Word Alignment", "Multidimensional Coverage", "Topper Benchmark Comparison"],
+      rubric: "UPSC 150/250-Word QCAB + Prelims Trap Engine",
+      desc: "Print fixed-space UPSC Question-cum-Answer Booklets (QCAB), get 360° multidimensional Mains grading, and practice Prelims MCQs linked to Current Affairs.",
+      highlights: [
+        "Printable Fixed-Space QCAB",
+        "Directive Word & 360° Matrix",
+        "Dual-Axis Current Affairs Bridge",
+        "All-India / State / District Rank",
+      ],
+    },
+  ];
+
+  const platformEcosystem = [
+    {
+      badge: "4 HYBRID EXAM MODES + ARUCO BOOKLETS",
+      title: "Write on Paper, OMR, or CBT—Your Choice",
+      desc: "Simulate any exam condition: (1) All-Digital CBT, (2) CBT MCQs + Handwritten Booklet, (3) Printable OMR Bubble Sheet + Ruled Booklet, or (4) 100% Plain Paper. Download official ICAI/UPSC QCAB booklets stamped with 4-corner ArUco markers & QR codes for automatic question slicing.",
+      color: "border-indigo-500/30 bg-indigo-950/15 text-indigo-300",
+    },
+    {
+      badge: "UNLIMITED JIT QUESTION PIPELINE",
+      title: "6/6 Blind-Solved MCQs That Never Run Out",
+      desc: "Every MCQ is solved blind from first principles by GPT-4o, Claude 3.5 Sonnet, and Gemini 2.5 Pro before entering your pool. When your unattempted buffer drops below 50, our Just-In-Time (JIT) pipeline synthesizes fresh, amendment-updated questions automatically.",
+      color: "border-emerald-500/30 bg-emerald-950/15 text-emerald-300",
+    },
+    {
+      badge: "CONTINUOUS-ELO HEATMAP & SM-2 VAULT",
+      title: "Adaptive Difficulty + Spaced Repetition",
+      desc: "Our Continuous-Interpolation Elo engine merges your MCQ accuracy and descriptive step scores into a live Red/Amber/Green Syllabus Heatmap—automatically shifting question difficulty (Easy → Medium → Hard) and queuing wrong answers into your SM-2 Spaced Repetition Vault.",
+      color: "border-purple-500/30 bg-purple-950/15 text-purple-300",
+    },
+    {
+      badge: "SCHOLARS ARENA & PEER TELEMETRY",
+      title: "National, State & District Leaderboards",
+      desc: "Enter your PIN code to compete in Weekly, Monthly, and All-Time sprints across your District, State, and All-India cohorts (from Apprentice to Grandmaster 👑). Plus, see real-time peer accuracy ('412 attempted • 28% got it right') on every single question.",
+      color: "border-amber-500/30 bg-amber-950/15 text-amber-300",
+    },
+    {
+      badge: "SMART PLANNER & CUSTOM MOCK BUILDER",
+      title: "Drag-and-Drop Schedule + Leave Override",
+      desc: "Algorithmic bin-packing builds your modular + full-syllabus mock schedule by chapter weightage. Drag-and-drop chapters across tests, log a 'Personal Leave' to auto-recalculate your weekly pace, or generate custom 30m–180m printable PDF mocks on demand.",
+      color: "border-sky-500/30 bg-sky-950/15 text-sky-300",
+    },
+    {
+      badge: "94.2% AUDITED COVERAGE & REVALUATION",
+      title: "Real Exam Coverage Proof + Supreme Appeal",
+      desc: "Inspect our side-by-side audit showing how closely our RAG question bank predicted actual ICAI & UPSC exam papers. Disagree with an AI grade? Trigger a 1-click Supreme AI Revaluation—if your score shifts by ≥10%, your revaluation tokens are refunded automatically.",
+      color: "border-rose-500/30 bg-rose-950/15 text-rose-300",
     },
   ];
 
   const sampleEvaluations = {
     ca: {
-      paper: "CA Final Paper 1: Financial Reporting (Ind AS 16)",
+      paper: "CA Final Paper 1: Financial Reporting (Ind AS 16 & 37)",
       score: "16.5 / 20",
-      consensus: "98.4% 3-Model Agreement",
+      consensus: "98.4% 3-Model Agreement • 300-DPI Table Zoom",
       extract:
         "As per Ind AS 16 'Property, Plant and Equipment', initial dismantling and restoration costs must be capitalized at present value using the pre-tax discount rate...",
       steps: [
-        { title: "Step 1: Accounting Standard Citation", feedback: "+1.5 Marks — Ind AS 16 provision & para reference accurately stated.", positive: true },
-        { title: "Step 2: Working Note 2 (PV of Decommissioning)", feedback: "+2.0 Marks — Discounting factor and initial carrying cost verified.", positive: true },
-        { title: "Step 3: Subsequent Depreciation Schedule", feedback: "-0.5 Marks — Unwinding of discount under Ind AS 37 finance cost omitted.", positive: false },
+        {
+          title: "Step 1: Accounting Standard Citation [Page 1 • Box #1]",
+          feedback: "+1.5 Marks — Ind AS 16 provision & para reference accurately stated.",
+          positive: true,
+        },
+        {
+          title: "Step 2: Working Note 2 (PV of Decommissioning) [Page 2 • Box #2]",
+          feedback: "+2.0 Marks — Discounting factor and initial carrying cost verified via 300-DPI ledger crop.",
+          positive: true,
+        },
+        {
+          title: "Step 3: Subsequent Depreciation Schedule [Page 2 • Box #3]",
+          feedback: "-0.5 Marks — Unwinding of discount under Ind AS 37 finance cost omitted in Year 1 P&L.",
+          positive: false,
+        },
       ],
     },
     cs: {
       paper: "CS Executive: Company Law & Practice (Sec 185/186)",
       score: "4.0 / 5.0",
-      consensus: "97.9% 3-Model Agreement",
+      consensus: "97.9% 3-Model Agreement • Language Upgraded",
       extract:
         "RESOLVED THAT pursuant to Section 186(2) of the Companies Act, 2013, unanimous consent of the Board and prior Special Resolution is required where loan exceeds 60% of paid-up share capital...",
       steps: [
-        { title: "Step 1: Statutory Threshold Check", feedback: "+1.5 Marks — 60% Paid-up Capital & 100% Free Reserves limit accurately cited.", positive: true },
-        { title: "Step 2: Resolution Drafting Structure", feedback: "+1.5 Marks — Operative clause & SS-1 board approval condition matched.", positive: true },
-        { title: "Step 3: Public Financial Institution Notice", feedback: "-1.0 Marks — Missed prior PFI approval condition in case of subsisting default.", positive: false },
+        {
+          title: "Step 1: Statutory Threshold Check",
+          feedback: "+1.5 Marks — 60% Paid-up Capital & 100% Free Reserves limit accurately cited.",
+          positive: true,
+        },
+        {
+          title: "Step 2: Resolution Drafting Structure",
+          feedback: "+1.5 Marks — Operative clause & SS-1 board approval condition matched.",
+          positive: true,
+        },
+        {
+          title: "Step 3: Public Financial Institution Notice",
+          feedback: "-1.0 Marks — Missed prior PFI approval condition in case of subsisting default.",
+          positive: false,
+        },
       ],
     },
     cma: {
@@ -351,21 +428,45 @@ export default function MarketingHome() {
       extract:
         "Minimum Transfer Price = Marginal Cost (₹45/unit) + Opportunity Cost of foregone external sales (₹15/unit) = ₹60.00 per unit...",
       steps: [
-        { title: "Step 1: Minimum Transfer Price Formula", feedback: "+2.5 Marks — MC + Opportunity Cost formulation verified.", positive: true },
-        { title: "Step 2: Capacity Constraint Working Note", feedback: "+4.0 Marks — Spare capacity vs external demand trade-off table accurate.", positive: true },
-        { title: "Step 3: Goal Congruence Conclusion", feedback: "-1.5 Marks — Divisional profit impact on Division B ROI not quantified.", positive: false },
+        {
+          title: "Step 1: Minimum Transfer Price Formula",
+          feedback: "+2.5 Marks — MC + Opportunity Cost formulation verified.",
+          positive: true,
+        },
+        {
+          title: "Step 2: Capacity Constraint Working Note",
+          feedback: "+4.0 Marks — Spare capacity vs external demand trade-off table accurate.",
+          positive: true,
+        },
+        {
+          title: "Step 3: Goal Congruence Conclusion",
+          feedback: "-1.5 Marks — Divisional profit impact on Division B ROI not quantified.",
+          positive: false,
+        },
       ],
     },
     upsc: {
       paper: "UPSC CSE Mains GS-II: Indian Constitution & Federalism",
       score: "6.5 / 10",
-      consensus: "Topper Percentile: Top 4%",
+      consensus: "Topper Percentile: Top 4% • QCAB Verified",
       extract:
         "While Article 280 envisages the Finance Commission as the balancing wheel of fiscal federalism, the rising share of non-divisible cesses and surcharges has shrunk the divisible pool...",
       steps: [
-        { title: "Introduction & Constitutional Anchor", feedback: "+1.5 Marks — Crisp opening anchored in Article 280 & 15th FC data.", positive: true },
-        { title: "Multidimensional Body (Fiscal + Administrative)", feedback: "+3.5 Marks — Both vertical asymmetry and horizontal equity criteria analyzed.", positive: true },
-        { title: "Way Forward & Committee Citation", feedback: "-1.0 Marks — Add Sarkaria/Punchhi Commission recommendation on cess sunset clauses.", positive: false },
+        {
+          title: "Introduction & Constitutional Anchor",
+          feedback: "+1.5 Marks — Crisp opening anchored in Article 280 & 15th FC data.",
+          positive: true,
+        },
+        {
+          title: "Multidimensional Body (Fiscal + Administrative)",
+          feedback: "+3.5 Marks — Both vertical asymmetry and horizontal equity criteria analyzed.",
+          positive: true,
+        },
+        {
+          title: "Way Forward & Committee Citation",
+          feedback: "-1.0 Marks — Add Sarkaria/Punchhi Commission recommendation on cess sunset clauses.",
+          positive: false,
+        },
       ],
     },
   };
@@ -373,19 +474,23 @@ export default function MarketingHome() {
   const faqs = [
     {
       q: "Why does NexQ AI use a 3-Model Consensus Engine instead of a single AI model?",
-      a: "Single AI chatbots (like generic ChatGPT) suffer from grading drift and hallucinated marks. NexQ AI routes your handwritten answer sheet through three specialized models simultaneously: Model A checks statutory provisions and accounting standards, Model B verifies step-by-step calculations and working notes, and Model C matches your structure against official ICAI, ICSI, ICMAI, and UPSC rubrics. All three models merge into one verified Consensus Score.",
+      a: "Single AI chatbots suffer from grading drift and hallucinated marks. NexQ AI routes your handwritten answer sheet through three frontier models simultaneously (Gemini 2.5 Pro, GPT-4o, and Claude 3.5 Sonnet): Model A checks statutory provisions and accounting standards, Model B verifies step-by-step calculations and 300-DPI working note tables, and Model C aligns scores with official ICAI, ICSI, ICMAI, and UPSC rubrics—dropping statistical outliers (>15% divergence) before synthesizing your verified score.",
+    },
+    {
+      q: "What do I get for free when I sign up, and how does the ₹20 Token system work?",
+      a: "The moment you verify your WhatsApp number during onboarding, you receive 30 Free Welcome Tokens plus 365-day access to the Unlimited MCQ Arena. Because Economy 24h evaluation costs just 2 Tokens (₹20) and Priority 1h evaluation costs 5 Tokens (₹50), you can evaluate 6 to 15 descriptive papers completely free! When you top up tokens, our FEFO (First-Expiring, First-Out) wallet spends promo tokens first while your purchased tokens never expire.",
     },
     {
       q: "How does the ₹1,00,000 Pass Challenge work for CA Final & Inter?",
-      a: "When you enroll in the CA Pass Challenge Track, you receive a structured schedule of full-length mock test papers. Upload your handwritten sheets, review your 60-second Red-Pen step evaluations, and maintain the benchmark pass score across the test series. If you complete the challenge protocol and do not clear your official ICAI exam, you qualify for up to ₹1,00,000 under the challenge guarantee terms.",
+      a: "When you enroll in the Pass Challenge Track, you receive a structured schedule of modular and full-length mock test papers. Upload your handwritten sheets, review your Red-Pen step evaluations, and maintain the benchmark pass score across the test series. If you complete the challenge protocol and do not clear your official exam, you qualify for up to ₹1,00,000 under the challenge guarantee terms.",
     },
     {
-      q: "Does NexQ AI award step marks for working notes even if my final balance sheet total is wrong?",
-      a: "Yes. Unlike basic answer keys that only check the final figure, our Red-Pen Step Marking engine inspects every intermediate working note, formula, ledger adjustment, and Ind AS / Section citation—awarding partial marks exactly like an official examiner.",
+      q: "What if I disagree with the AI's grading on a question?",
+      a: "Every evaluated submission includes a 1-click 'Apply for Supreme AI Revaluation' button. A fresh de-novo audit is executed by our Supreme Appeals Examiner model. If your total score shifts by 10% or more, your revaluation tokens are automatically refunded to your wallet.",
     },
     {
-      q: "How can coaching institutes use the Coaching Portal?",
-      a: "Coaching classes and test series providers can log into the NexQ AI Institute Portal to bulk-upload hundreds of student handwritten PDFs at once. The engine grades entire batches in minutes using official or custom faculty rubrics, providing cohort bell curves and weak-topic analytics.",
+      q: "How can coaching institutes use the B2B Coaching Portal?",
+      a: "Coaching academies get a white-labeled subdomain (e.g., youracademy.nexqai.in) or custom domain, CSV bulk student roster provisioning, multi-PDF offline exam center batch booklet uploading, Net-30 postpaid credit billing, and cohort bell-curve analytics.",
     },
   ];
 
@@ -396,16 +501,17 @@ export default function MarketingHome() {
       {/* ================================================================= */}
       <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-emerald-950 border-b border-indigo-500/20 py-2.5 px-4 text-center text-xs sm:text-sm">
         <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 mr-2">
-          ₹1 LAKH PASS CHALLENGE
+          🎁 30 FREE TOKENS ON SIGNUP
         </span>
         <span className="text-slate-200 font-medium">
-          Practice with our 3-Model Consensus AI Grader — Pass your exam or claim up to ₹1,00,000.
+          Get up to 15 Free Descriptive Paper Evaluations + Unlimited MCQ Arena +{" "}
+          <strong className="text-emerald-300">₹1,00,000 Pass Challenge</strong>.
         </span>
         <a
-          href="#pass-challenge"
+          href="#exam-arenas"
           className="ml-2 font-bold text-indigo-400 hover:text-indigo-300 underline underline-offset-4"
         >
-          See Challenge Details →
+          Claim Free Welcome Grant →
         </a>
       </div>
 
@@ -424,16 +530,15 @@ export default function MarketingHome() {
               </span>
             </Link>
 
-            {/* Quick Portal Links for Returning Students */}
             <nav className="hidden lg:flex items-center gap-1.5 pl-4 border-l border-slate-800">
               {streams.map((s) => (
-                <a
+                <Link
                   key={s.slug}
                   href={`/${s.slug}`}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
                 >
                   {s.slug.toUpperCase()} Arena
-                </a>
+                </Link>
               ))}
             </nav>
           </div>
@@ -449,7 +554,7 @@ export default function MarketingHome() {
               href={`${APP_URL}/login`}
               className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-lg shadow-indigo-600/20"
             >
-              Student Sign In
+              Student Sign In (30 Free Tokens)
             </Link>
           </div>
         </div>
@@ -460,35 +565,40 @@ export default function MarketingHome() {
         {/* WINDOW 1: CINEMATIC HERO + IMAGE 1 (HERO PREVIEW) + VIDEO MODAL   */}
         {/* ================================================================= */}
         <section className="relative overflow-hidden pt-12 pb-20 px-6 border-b border-slate-900">
-          {/* Ambient Top Glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[420px] bg-indigo-600/15 blur-[130px] pointer-events-none -z-10" />
 
           <div className="max-w-6xl mx-auto text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              3-Model Consensus AI Exam Engine • Evaluation in just 1 hr
+            <div className="flex flex-wrap justify-center items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                3-Model Consensus AI Engine • 5-Min Express & 1-Hr Priority Grading
+              </div>
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                Evaluations Starting at ₹20 (2 Tokens)
+              </span>
             </div>
 
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.08] tracking-tight max-w-5xl mx-auto">
               Stop Waiting 14 Days for Test Series Feedback.{" "}
               <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-emerald-300 bg-clip-text text-transparent">
-                Grade Handwritten Answers in just 1 hr.
+                Grade Handwritten Sheets in Minutes.
               </span>
             </h1>
 
             <p className="text-slate-400 max-w-3xl mx-auto text-base sm:text-lg md:text-xl leading-relaxed">
-              Upload photos of your handwritten CA, CS, CMA, or UPSC answer sheets. Get instant{" "}
-              <strong className="text-slate-200">Red-Pen Step Marking</strong>, working note verification, and official
-              rubric feedback—backed by our <strong className="text-emerald-400">₹1,00,000 Pass Challenge</strong>.
+              Upload photos or PDFs of your handwritten CA, CS, CMA, or UPSC answer booklets. Get{" "}
+              <strong className="text-slate-200">Bi-Directional Red-Pen Step Marking</strong>,{" "}
+              <strong className="text-slate-200">Unlimited 6/6 Blind-Verified MCQs</strong>, and{" "}
+              <strong className="text-slate-200">National/State/District Rank Leaderboards</strong>—backed by our{" "}
+              <strong className="text-emerald-400">₹1,00,000 Pass Challenge</strong>.
             </p>
 
-            {/* Primary Hero CTAs */}
             <div className="flex flex-wrap justify-center items-center gap-4 pt-2">
               <a
                 href="#exam-arenas"
                 className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-sm sm:text-base font-black text-white shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02]"
               >
-                Select Your Exam Arena ↓
+                Select Your Exam Arena (Start Free) ↓
               </a>
               <button
                 onClick={() => setIsVideoOpen(true)}
@@ -501,35 +611,52 @@ export default function MarketingHome() {
               </button>
             </div>
 
+            {/* 4 Hero Proof Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto pt-4 text-left">
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="text-xl font-black text-emerald-400">30 Free Tokens</div>
+                <div className="text-[11px] text-slate-400">Up to 15 Free Paper Checks on Signup</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="text-xl font-black text-indigo-400">₹20 / Paper</div>
+                <div className="text-[11px] text-slate-400">FEFO Token Wallet (Never Expires)</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="text-xl font-black text-purple-400">Unlimited MCQs</div>
+                <div className="text-[11px] text-slate-400">JIT Auto-Replenishing Question Bank</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800">
+                <div className="text-xl font-black text-amber-400">94.2% Match</div>
+                <div className="text-[11px] text-slate-400">Audited Real Exam Question Coverage</div>
+              </div>
+            </div>
+
             {/* IMAGE 1 CONTAINER: HERO TABLET + VIDEO TRIGGER */}
-            <div className="mt-12 max-w-5xl mx-auto">
+            <div className="mt-10 max-w-5xl mx-auto">
               <div
                 onClick={() => setIsVideoOpen(true)}
                 className="group relative rounded-3xl p-2 bg-gradient-to-b from-indigo-500/30 via-slate-800 to-slate-900 border border-indigo-500/30 shadow-2xl shadow-indigo-950/60 cursor-pointer overflow-hidden"
               >
                 <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950">
-                  {/* Asset 1: Hero Preview Image */}
                   <img
                     src={IMAGES.heroPreview}
                     alt="NexQ AI Handwritten Exam Evaluation Interface"
                     className="w-full h-full object-cover object-center group-hover:scale-[1.02] transition-transform duration-500"
                   />
-
-                  {/* Subtle Dark Edge Vignette (Cleanly masks any tiny corner artifacts and boosts contrast) */}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/25 to-slate-950/60" />
 
-                  {/* Top-Left Brand Badge Overlay (Covers top-left corner of tablet cleanly) */}
                   <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-wrap items-center gap-2 z-10">
                     <div className="bg-slate-950/90 backdrop-blur-md border border-indigo-500/40 px-3.5 py-1.5 rounded-xl flex items-center gap-2 shadow-lg">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs font-black tracking-wide text-white">NEXQ AI LIVE ENGINE</span>
+                      <span className="text-xs font-black tracking-wide text-white">
+                        GEMINI 2.5 PRO + GPT-4o + CLAUDE 3.5 SONNET
+                      </span>
                     </div>
                     <div className="hidden sm:flex bg-slate-950/85 backdrop-blur-md border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-mono text-indigo-300">
-                      ICAI • ICSI • ICMAI • UPSC
+                      4 Hybrid Modes • ArUco Printable Booklets
                     </div>
                   </div>
 
-                  {/* Center Pulsing Play Button */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-indigo-600/95 group-hover:bg-indigo-500 text-white flex items-center justify-center text-3xl shadow-2xl shadow-indigo-600/60 border-4 border-white/20 transition-all group-hover:scale-110">
                       ▶
@@ -539,14 +666,13 @@ export default function MarketingHome() {
                     </span>
                   </div>
 
-                  {/* Bottom Live Metrics Strip */}
                   <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex flex-wrap justify-between items-center gap-2 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-4 py-3 rounded-2xl text-xs z-10">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                        STEP MARKING VERIFIED
+                        BI-DIRECTIONAL RED-PEN CANVAS
                       </span>
                       <span className="text-slate-300 hidden md:inline">
-                        Ind AS 16 + Working Note 2 Checked in 58.2 Seconds
+                        Click any rubric step to highlight the exact bounding box on your handwritten sheet
                       </span>
                     </div>
                     <span className="font-mono font-bold text-indigo-400">3-Model Consensus: 98.4%</span>
@@ -567,13 +693,14 @@ export default function MarketingHome() {
             </span>
             <h2 className="text-3xl sm:text-5xl font-black tracking-tight">Select Your Exam Arena</h2>
             <p className="text-slate-400 max-w-2xl mx-auto text-base sm:text-lg">
-              Each portal is calibrated to official examining body rubrics, past topper sheets, and step-marking schemes.
+              Each portal is calibrated to official examining body rubrics, past topper sheets, attempt-scoped statutory
+              amendments, and step-marking schemes.
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6 text-left">
             {streams.map((s) => (
-              <a
+              <Link
                 key={s.slug}
                 href={`/${s.slug}`}
                 className={`p-8 rounded-3xl bg-slate-900/90 border border-slate-800 ${s.borderHover} transition-all duration-300 group shadow-2xl flex flex-col justify-between hover:-translate-y-1`}
@@ -584,7 +711,7 @@ export default function MarketingHome() {
                       {s.badge}
                     </span>
                     <span className="text-[11px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-lg border border-indigo-500/20">
-                      {s.slug}.{rootDomain}
+                      nexqai.in/{s.slug}
                     </span>
                   </div>
 
@@ -611,36 +738,35 @@ export default function MarketingHome() {
                     ))}
                   </div>
                   <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
-                    <span className="group-hover:underline">Launch {s.slug.toUpperCase()} Portal</span>
-                    <span className="text-slate-500 font-normal">Instant 1 hr Grading →</span>
+                    <span className="group-hover:underline">Enter {s.slug.toUpperCase()} Arena</span>
+                    <span className="text-emerald-400 font-semibold">30 Free Welcome Tokens →</span>
                   </div>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </section>
 
         {/* ================================================================= */}
-        {/* WINDOW 3: VISUAL BENTO GRID (IMAGES 2 & 3) + INTERACTIVE DEMO     */}
+        {/* WINDOW 3: VISUAL BENTO GRID (IMAGES 2 & 3) + 6-PILLAR ECOSYSTEM   */}
         {/* ================================================================= */}
         <section className="py-20 px-6 bg-slate-900/40 border-y border-slate-800/80">
           <div className="max-w-6xl mx-auto space-y-16">
             <div className="text-center space-y-4 max-w-3xl mx-auto">
               <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                Inside the AI Grading Engine
+                Inside the AI Assessment & Adaptive Practice Engine
               </span>
               <h2 className="text-3xl sm:text-5xl font-black tracking-tight">
-                Why Students Trust NexQ AI Over Generic Chatbots
+                More Than a Test Series. A Complete AI Exam Operating System.
               </h2>
               <p className="text-slate-400 text-base sm:text-lg">
-                Built specifically for handwritten Indian professional and civil service exams—never miss step marks or
-                working note credit again.
+                From 300-DPI handwritten table OCR and printable ArUco booklets to Continuous-Elo heatmaps and
+                National/State/District leaderboards.
               </p>
             </div>
 
             {/* BENTO GRID WITH IMAGE 2 (CONSENSUS) & IMAGE 3 (STEP MARKING MACRO) */}
             <div className="grid lg:grid-cols-2 gap-8">
-              {/* Bento Card 1: Image 2 (3-Model Consensus Architecture) */}
               <div className="rounded-3xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between">
                 <div className="relative aspect-video w-full bg-slate-900 overflow-hidden border-b border-slate-800">
                   <img
@@ -650,22 +776,24 @@ export default function MarketingHome() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
                   <span className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-950/90 text-indigo-300 border border-indigo-500/30">
-                    ZERO-HALLUCINATION ARCHITECTURE
+                    OUTLIER-DROPPING 3-MODEL CONSENSUS
                   </span>
                 </div>
                 <div className="p-8 space-y-3">
-                  <h3 className="text-2xl font-black text-white">3-Model Consensus AI Exam Engine</h3>
+                  <h3 className="text-2xl font-black text-white">
+                    3-Model Consensus Engine + Automatic Outlier Filtering
+                  </h3>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    Your handwritten answer sheet is never graded by a single AI opinion. Three independent evaluator
-                    nodes audit <strong className="text-slate-200">Statutory Law (Model A)</strong>,{" "}
-                    <strong className="text-slate-200">Working Notes & Calculations (Model B)</strong>, and{" "}
-                    <strong className="text-slate-200">Official ICAI/UPSC Rubrics (Model C)</strong> before merging into
-                    a verified Consensus Score.
+                    Your handwritten answer sheet is graded in parallel by{" "}
+                    <strong className="text-slate-200">Gemini 2.5 Pro</strong>,{" "}
+                    <strong className="text-slate-200">GPT-4o</strong>, and{" "}
+                    <strong className="text-slate-200">Claude 3.5 Sonnet</strong>. If any model diverges by &gt;15% from
+                    the median, it is automatically dropped as an outlier before the Chief Presiding Arbiter synthesizes
+                    your step-by-step score.
                   </p>
                 </div>
               </div>
 
-              {/* Bento Card 2: Image 3 (Red-Pen Step Marking Macro) */}
               <div className="rounded-3xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between">
                 <div className="relative aspect-video w-full bg-slate-900 overflow-hidden border-b border-slate-800">
                   <img
@@ -675,18 +803,39 @@ export default function MarketingHome() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
                   <span className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-950/90 text-rose-300 border border-rose-500/40">
-                    RED-PEN STEP MARKING
+                    300-DPI TABLE ZOOM & BI-DIRECTIONAL CANVAS
                   </span>
                 </div>
                 <div className="p-8 space-y-3">
-                  <h3 className="text-2xl font-black text-white">Line-by-Line Step & Working Note Grader</h3>
+                  <h3 className="text-2xl font-black text-white">
+                    Bi-Directional Red-Pen Canvas & Working Note Grader
+                  </h3>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    In CA, CS, and CMA, you earn crucial marks for intermediate steps, Ind AS citations, and working
-                    notes even if your final balance sheet total doesn’t tally. Our Red-Pen OCR pinpoints exact
-                    deductions and awards step-wise credit in 60 seconds.
+                    Our OpenCV deskew & CLAHE contrast pipeline automatically takes{" "}
+                    <strong className="text-slate-200">300-DPI zoomed crops</strong> of your accounting ledgers, tax
+                    computations, and diagrams. Click any step in your rubric table to jump directly to that page and
+                    highlight the exact red-pen bounding box on your sheet.
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* 6-CARD PLATFORM ECOSYSTEM GRID */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {platformEcosystem.map((feat, idx) => (
+                <div
+                  key={idx}
+                  className="p-7 rounded-3xl bg-slate-950 border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black border ${feat.color}`}>
+                      {feat.badge}
+                    </span>
+                    <h3 className="text-lg font-black text-white">{feat.title}</h3>
+                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{feat.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Interactive Tab Switcher: Live Rubric Breakdown */}
@@ -697,7 +846,7 @@ export default function MarketingHome() {
                     Interactive Rubric Inspector
                   </span>
                   <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
-                    Preview a Sample 60-Second Evaluation
+                    Preview a Sample Step-by-Step Evaluation
                   </h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -724,7 +873,7 @@ export default function MarketingHome() {
                     <span className="text-emerald-400 font-bold">{sampleEvaluations[activeTab].consensus}</span>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs sm:text-sm text-slate-300 leading-relaxed italic">
-                    "{sampleEvaluations[activeTab].extract}"
+                    &ldquo;{sampleEvaluations[activeTab].extract}&rdquo;
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-xs text-slate-400">Awarded Consensus Score:</span>
@@ -758,10 +907,8 @@ export default function MarketingHome() {
         {/* WINDOW 4: ₹1 LAKH PASS CHALLENGE (IMAGE 4) + COMPARISON TABLE     */}
         {/* ================================================================= */}
         <section id="pass-challenge" className="py-24 px-6 max-w-6xl mx-auto w-full space-y-20">
-          {/* ₹1 Lakh Pass Challenge Spotlight with Image 4 */}
           <div className="rounded-3xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 p-8 sm:p-12 shadow-2xl">
             <div className="grid lg:grid-cols-12 gap-10 items-center">
-              {/* Left 7 Cols: Challenge Copy & 3 Steps */}
               <div className="lg:col-span-7 space-y-6">
                 <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-block uppercase tracking-wider">
                   Ultimate Risk-Reversal Guarantee
@@ -785,7 +932,7 @@ export default function MarketingHome() {
                   <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/20">
                     <span className="text-emerald-400 font-black text-sm block mb-1">02. Practice & Fix</span>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Submit handwritten mock papers and apply 60-second Red-Pen step feedback.
+                      Submit handwritten mock papers and apply Red-Pen step feedback & heatmap revisions.
                     </p>
                   </div>
                   <div className="bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/20">
@@ -797,12 +944,12 @@ export default function MarketingHome() {
                 </div>
 
                 <div className="flex flex-wrap gap-4 pt-2">
-                  <a
-                    href={`${protocol}ca.${rootDomain}`}
+                  <Link
+                    href="/ca"
                     className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-emerald-500/20 transition-all"
                   >
                     Enter CA ₹1L Pass Challenge →
-                  </a>
+                  </Link>
                   <button
                     onClick={() => setIsVideoOpen(true)}
                     className="px-6 py-4 bg-slate-950 hover:bg-slate-900 text-emerald-300 border border-emerald-500/30 font-bold rounded-2xl text-sm transition-colors cursor-pointer"
@@ -812,7 +959,6 @@ export default function MarketingHome() {
                 </div>
               </div>
 
-              {/* Right 5 Cols: Asset 4 (1:1 Square Vault Emblem) */}
               <div className="lg:col-span-5 flex justify-center">
                 <div className="relative w-full max-w-sm aspect-square rounded-3xl overflow-hidden border border-emerald-500/30 shadow-2xl shadow-emerald-950/50 bg-slate-950">
                   <img
@@ -825,7 +971,7 @@ export default function MarketingHome() {
             </div>
           </div>
 
-          {/* Comparison Table for SEO & Conversion */}
+          {/* Comparison Table */}
           <div className="space-y-8">
             <div className="text-center space-y-2">
               <h3 className="text-2xl sm:text-4xl font-black">NexQ AI vs. Traditional Test Series vs. ChatGPT</h3>
@@ -848,33 +994,41 @@ export default function MarketingHome() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/80 text-slate-300">
                   <tr>
-                    <td className="p-4 sm:p-5 font-semibold text-white">Evaluation Speed</td>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Evaluation Speed & Tiers</td>
                     <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-500/20">
-                      ⚡ 60 Seconds (Instant Feedback)
+                      ⚡ 5-Min Express • 1-Hr Priority • 24-Hr Economy
                     </td>
                     <td className="p-4 sm:p-5 text-rose-400">7 to 14 Days Delay</td>
                     <td className="p-4 sm:p-5 text-amber-300">1–2 Mins (Unstructured)</td>
                   </tr>
                   <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Cost & Free Trial</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-500/20">
+                      ✓ 30 Free Tokens on Signup • ₹20/Paper Thereafter
+                    </td>
+                    <td className="p-4 sm:p-5">₹1,500–₹4,000 Upfront Lock-In</td>
+                    <td className="p-4 sm:p-5">₹2,000/mo Subscription</td>
+                  </tr>
+                  <tr>
                     <td className="p-4 sm:p-5 font-semibold text-white">Step Marking & Working Notes</td>
                     <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-500/20">
-                      ✓ Line-by-Line Red-Pen Step Marks
+                      ✓ 300-DPI Table Crop + Bi-Directional Red-Pen Boxes
                     </td>
-                    <td className="p-4 sm:p-5">Inconsistent across evaluators</td>
+                    <td className="p-4 sm:p-5">Inconsistent across freelancers</td>
                     <td className="p-4 sm:p-5 text-rose-400">✗ Misses working note steps</td>
                   </tr>
                   <tr>
-                    <td className="p-4 sm:p-5 font-semibold text-white">Official Rubric Calibration</td>
+                    <td className="p-4 sm:p-5 font-semibold text-white">MCQ Practice & Adaptive Mastery</td>
                     <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-500/20">
-                      ✓ ICAI, ICSI, ICMAI & UPSC Rubrics
+                      ✓ Unlimited 6/6 Blind-Solved MCQs + Elo Heatmap + SM-2 Vault
                     </td>
-                    <td className="p-4 sm:p-5">Depends on checker experience</td>
-                    <td className="p-4 sm:p-5 text-rose-400">✗ Generic textbook summaries</td>
+                    <td className="p-4 sm:p-5">Static PDFs with no adaptive tracking</td>
+                    <td className="p-4 sm:p-5 text-rose-400">✗ Hallucinates tax amendments</td>
                   </tr>
                   <tr>
-                    <td className="p-4 sm:p-5 font-semibold text-white">Pass Guarantee</td>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Revaluation & Pass Guarantee</td>
                     <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-500/20">
-                      🏆 Up to ₹1,00,000 Pass Challenge
+                      🏆 Auto-Refund Revaluation + ₹1,00,000 Pass Challenge
                     </td>
                     <td className="p-4 sm:p-5 text-rose-400">None</td>
                     <td className="p-4 sm:p-5 text-rose-400">None</td>
@@ -890,19 +1044,19 @@ export default function MarketingHome() {
         {/* ================================================================= */}
         <section className="py-20 px-6 bg-slate-900/40 border-t border-slate-800">
           <div className="max-w-6xl mx-auto space-y-20">
-            {/* Coaching Institute Showcase with Image 5 */}
             <div className="rounded-3xl bg-slate-950 border border-indigo-500/30 overflow-hidden shadow-2xl">
               <div className="grid lg:grid-cols-12 items-center">
                 <div className="lg:col-span-6 p-8 sm:p-12 space-y-5">
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    B2B Coaching Portal
+                    B2B Coaching Portal • White-Label Subdomains
                   </span>
                   <h2 className="text-2xl sm:text-4xl font-black text-white leading-tight">
                     Evaluate 10,000+ Student Answer Copies Overnight
                   </h2>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-                    Built for CA, CS, CMA, and UPSC coaching academies. Replace slow manual paper checking with
-                    automated batch evaluation, cohort bell-curve analytics, and white-labeled rubric reports.
+                    Built for CA, CS, CMA, and UPSC coaching academies. Claim your branded subdomain (e.g.,{" "}
+                    <code className="text-indigo-300">youracademy.nexqai.in</code>), bulk-import student CSV rosters,
+                    drop multi-PDF offline exam center scans, and use Net-30 postpaid credit billing.
                   </p>
                   <div className="pt-2">
                     <Link
@@ -914,14 +1068,12 @@ export default function MarketingHome() {
                   </div>
                 </div>
 
-                {/* Right 6 Cols: Image 5 (Curved Ultrawide Coaching Monitor) */}
                 <div className="lg:col-span-6 relative h-full min-h-[280px] bg-slate-900">
                   <img
                     src={IMAGES.coachingDashboard}
                     alt="NexQ AI Coaching Institute Batch Evaluation Portal"
                     className="w-full h-full object-cover object-center"
                   />
-                  {/* Subtle left-blend gradient into the text card */}
                   <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-transparent to-slate-950/40 hidden lg:block" />
                 </div>
               </div>
@@ -974,7 +1126,7 @@ export default function MarketingHome() {
             <div className="flex justify-between items-center px-6 py-4 bg-slate-950 border-b border-slate-800">
               <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                NexQ AI — ₹1 Lakh Pass Challenge & 1 hr Grading Demo
+                NexQ AI — ₹1 Lakh Pass Challenge & Grading Demo
               </span>
               <button
                 onClick={() => setIsVideoOpen(false)}
@@ -1010,18 +1162,18 @@ export default function MarketingHome() {
             <span>© 2026 NexQ AI Edtech Private Limited. High-stakes exam assessment engine.</span>
           </div>
           <div className="flex flex-wrap gap-5 text-slate-400 font-medium">
-            <a href={`${protocol}ca.${rootDomain}`} className="hover:text-white">
+            <Link href="/ca" className="hover:text-white">
               CA Arena
-            </a>
-            <a href={`${protocol}cs.${rootDomain}`} className="hover:text-white">
+            </Link>
+            <Link href="/cs" className="hover:text-white">
               CS Arena
-            </a>
-            <a href={`${protocol}cma.${rootDomain}`} className="hover:text-white">
+            </Link>
+            <Link href="/cma" className="hover:text-white">
               CMA Arena
-            </a>
-            <a href={`${protocol}upsc.${rootDomain}`} className="hover:text-white">
+            </Link>
+            <Link href="/upsc" className="hover:text-white">
               UPSC Arena
-            </a>
+            </Link>
             <Link href={`${APP_URL}/institute/login`} className="hover:text-white">
               Coaching Portal
             </Link>
@@ -1072,73 +1224,96 @@ FILE: ./app/i/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+export const instant = false;
+
 type Props = { params: Promise<{ slug: string }> };
 
-// Fetch from AWS API (Replace with your actual AWS backend endpoint)
 async function getInstituteData(slug: string) {
   try {
-    const res = await fetch(`https://api.nexqai.in/v1/institutes/${slug}`, {
-      next: { revalidate: 300 }, // Cache on Vercel for 5 minutes
+    const res = await fetch(`https://api.nexqai.in/api/v1/institute/settings/resolve-portal?host=${slug}`, {
+      next: { revalidate: 300 },
     });
     if (!res.ok) return null;
     return await res.json();
   } catch {
-    return null; // Fallback for dev mode without live API
+    return null;
   }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const institute = await getInstituteData(slug);
-  
-  if (!institute) return { title: "Institute Not Found | NexQ AI" };
+  const data = await getInstituteData(slug);
+  if (!data) return { title: "Institute Not Found | NexQ AI" };
+
   return {
-    title: `${institute.name} — AI Mock Test Portal`,
-    description: `Official evaluation portal for ${institute.name} powered by NexQ AI.`,
+    title: `${data.name} — AI Mock Test Portal`,
+    description: `Official evaluation portal for ${data.name} powered by NexQ AI.`,
   };
 }
 
 export default async function InstituteLandingPage({ params }: Props) {
   const { slug } = await params;
-  const institute = await getInstituteData(slug);
+  const portal = await getInstituteData(slug);
 
-  // If institute isn't found in AWS DB, show 404
-  if (!institute) notFound(); 
+  if (!portal || portal.portal_type !== "INSTITUTE") {
+    notFound();
+  }
+
+  const landing = portal.landing_config || {};
+  const branding = portal.branding || {};
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 py-4 px-6 flex justify-between items-center max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between">
+      <header className="border-b border-slate-800 py-4 px-6 flex justify-between items-center max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-black">{institute.name}</h1>
-          <span className="text-[10px] text-slate-500 font-mono">POWERED BY NEXQ AI</span>
+          {branding.logo_url && (
+            <img src={branding.logo_url} alt={portal.name} className="h-8 w-auto rounded-md" />
+          )}
+          <div>
+            <h1 className="text-lg font-black">{portal.name}</h1>
+            <span className="text-[10px] text-slate-500 font-mono">POWERED BY NEXQ AI</span>
+          </div>
         </div>
-        <a href={`https://app.nexqai.in/login?institute=${slug}`} className="px-5 py-2 bg-indigo-600 rounded-lg text-sm font-bold">
+        <a
+          href={`https://app.nexqai.in/login?institute=${slug}`}
+          className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold transition-colors"
+        >
           Student Login
         </a>
       </header>
 
-      <main className="max-w-4xl mx-auto py-20 px-6 text-center space-y-8">
-        <h2 className="text-4xl font-black">{institute.headline || `${institute.name} Mock Series`}</h2>
+      <main className="max-w-4xl mx-auto py-20 px-6 text-center space-y-8 flex-1">
+        <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-xs font-bold">
+          {landing.hero_badge || "Official Assessment Portal"}
+        </span>
+        <h2 className="text-4xl font-black">
+          {landing.hero_headline || `${portal.name} Test Series`}
+        </h2>
         <p className="text-slate-400 max-w-2xl mx-auto">
-          {institute.tagline || "Submit handwritten answer sheets for 60-second evaluations."}
+          {landing.hero_subheadline || "Submit handwritten answer sheets for 60-second evaluations."}
         </p>
 
-        {/* Render Packages from DB */}
-        <div className="grid sm:grid-cols-2 gap-6 pt-10 text-left">
-          {institute.packages?.map((pkg: any) => (
-            <div key={pkg.id} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl">
-              <h3 className="text-xl font-bold">{pkg.title}</h3>
-              <p className="text-slate-400 text-sm mt-2">{pkg.description}</p>
-              <div className="mt-6 flex justify-between items-center">
-                <span className="text-emerald-400 font-black">₹{pkg.price}</span>
-                <a href={`https://app.nexqai.in/enroll?package=${pkg.id}&institute=${slug}`} className="px-4 py-2 bg-slate-800 rounded-lg text-sm font-bold">
-                  Enroll
-                </a>
-              </div>
+        {landing.faculty_members?.length > 0 && (
+          <div className="pt-10 text-left">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Faculty Panel</h3>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {landing.faculty_members.map((fac: any, i: number) => (
+                <div key={i} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center gap-3">
+                  <img src={fac.photo_url || "/images/avatar-placeholder.png"} alt={fac.name} className="w-10 h-10 rounded-full object-cover" />
+                  <div>
+                    <div className="text-xs font-bold text-white">{fac.name}</div>
+                    <div className="text-[11px] text-indigo-400">{fac.subject}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </main>
+
+      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
+        © 2026 {portal.name}. Verified Partner Portal powered by NexQ AI.
+      </footer>
     </div>
   );
 }
@@ -1192,57 +1367,1608 @@ FILE: ./app/[exam]/page.tsx
 ============================================================
 
 // FILE: ./app/[exam]/page.tsx
+"use client";
+
+import { useState, use } from "react";
+import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import { EXAM_CONFIG } from "../../config/exams";
 import Link from "next/link";
+import Script from "next/script";
+import { CheckCircle2, Award, BookOpen, Layers, ShieldCheck, Zap, Trophy, BarChart3, Calendar, Eye, EyeOff } from "lucide-react";
 
-export default async function ExamLandingPage({ params }: { params: Promise<{ exam: string }> }) {
-  const { exam } = await params;
+const IMAGES = {
+  heroPreview: "/images/hero-preview.jpg",
+  consensusArchitecture: "/images/consensus-architecture.jpg",
+  stepMarkingMacro: "/images/step-marking-macro.jpg",
+  passChallengeBadge: "/images/pass-challenge-badge.jpg",
+};
+
+export default function StylishExamPage({ params }: { params: Promise<{ exam: string }> }) {
+  const { exam } = use(params);
   const data = EXAM_CONFIG[exam.toLowerCase()];
 
+  // 1. Scroll-Linked Animation Hooks (Smooth 1:1 with user scroll speed)
+  const { scrollY } = useScroll();
+  const panelWidth = useTransform(scrollY, [0, 600], ["30%", "4rem"]);
+  const leftMargin = useTransform(scrollY, [0, 600], ["30%", "4rem"]);
+  const formOpacity = useTransform(scrollY, [0, 350], [1, 0]);
+  const textOpacity = useTransform(scrollY, [450, 600], [0, 1]);
+
+  // Interactive UI States
+  const [isScrolledPast, setIsScrolledPast] = useState(false);
+  const [isPanelForcedOpen, setIsPanelForcedOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<"email" | "phone" | "register">("email");
+  const [selectedLevel, setSelectedLevel] = useState(0);
+  const [scheduleMode, setScheduleMode] = useState<"unscheduled" | "scheduled">("unscheduled");
+  const [activeDefectTab, setActiveDefectTab] = useState<"numerical" | "audit" | "mcq">("numerical");
+  const [activeEngineTab, setActiveEngineTab] = useState<"hybrid" | "heatmap" | "leaderboard" | "planner">("hybrid");
+  const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  
+
+  // =========================================================================
+  // LIVE AUTHENTICATION STATE & API HANDLERS (CONNECTS TO api.nexqai.in)
+  // =========================================================================
+  const isDev = process.env.NODE_ENV === "development";
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || (isDev ? "http://localhost:8000" : "https://api.nexqai.in");
+  const APP_BASE = isDev ? "http://localhost:3000" : "https://app.nexqai.in";
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authSuccess, setAuthSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- ADD THIS LINE
+
+  const handoffToDashboard = (accessToken: string) => {
+    window.location.href = `${APP_BASE}/login?sso_token=${encodeURIComponent(accessToken)}&exam=${data.slug}`;
+  };
+
+  const handleEmailOrRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+    setAuthSuccess("");
+
+    try {
+      if (authTab === "register") {
+        const regRes = await fetch(`${API_BASE}/api/v1/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) throw new Error(regData.detail || "Registration failed.");
+
+        // Automatically sign in right after registering
+        const loginRes = await fetch(`${API_BASE}/api/v1/auth/login/student`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const loginData = await loginRes.json();
+        if (loginRes.ok && loginData.access_token) {
+          handoffToDashboard(loginData.access_token);
+          return;
+        }
+        setAuthSuccess("Account created! Signing you in...");
+        setAuthTab("email");
+      } else {
+        const res = await fetch(`${API_BASE}/api/v1/auth/login/student`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            force_kick_otp: otpSent && otp ? otp : undefined,
+          }),
+        });
+        const resData = await res.json();
+
+        if (res.status === 409 && resData.requires_force_kick) {
+          setOtpSent(true);
+          setAuthError(
+            `Active session on another device. Enter the 6-digit code sent to WhatsApp (${resData.phone_masked}) to force-login.`
+          );
+          return;
+        }
+        if (!res.ok) throw new Error(resData.detail || "Invalid email or password.");
+
+        handoffToDashboard(resData.access_token);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSendWhatsAppOtp = async () => {
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanPhone.length < 10) {
+      setAuthError("Please enter a valid 10-digit WhatsApp number.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_number: `+91${cleanPhone}` }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Failed to send OTP.");
+      setOtpSent(true);
+      setAuthSuccess("6-digit OTP sent to your WhatsApp!");
+    } catch (err: any) {
+      setAuthError(err.message || "Failed to send OTP.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyWhatsAppOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const cleanPhone = phone.replace(/[^0-9]/g, "");
+      const res = await fetch(`${API_BASE}/api/v1/auth/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_number: `+91${cleanPhone}`, otp }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Invalid OTP.");
+      handoffToDashboard(resData.access_token);
+    } catch (err: any) {
+      setAuthError(err.message || "OTP verification failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleCallback = async (response: any) => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: response.credential }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.detail || "Google sign-in failed.");
+      handoffToDashboard(resData.access_token);
+    } catch (err: any) {
+      setAuthError(err.message || "Google authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    if (latest > 350) {
+      if (!isScrolledPast) setIsScrolledPast(true);
+    } else {
+      if (isScrolledPast) setIsScrolledPast(false);
+      if (isPanelForcedOpen) setIsPanelForcedOpen(false);
+    }
+  });
+
+  if (!data) return <div className="p-20 text-white">Exam not found.</div>;
+
+  const levels = data.levels || [
+    {
+      id: "default",
+      label: `${data.examBody} Complete Track`,
+      groups: "All Papers Covered",
+      subjects: data.features.map((f: string, idx: number) => ({
+        code: `Module ${idx + 1}`,
+        name: f,
+        tags: ["3-Model AI Grading", "Step-Wise Rubric", "Topper Benchmark"],
+      })),
+    },
+  ];
+
+  const plans = data.plans || [
+    {
+      name: "Free Starter Grant (On Signup)",
+      badge: "100% FREE • NO CARD REQUIRED",
+      price: "₹0",
+      unit: "/ 30 Free Welcome Tokens + 365d MCQ Arena",
+      desc: "Verify your WhatsApp number and immediately unlock 30 Welcome Tokens (up to 15 Economy or 6 Priority Descriptive Evaluations Free).",
+      features: [
+        "6 Priority (or 15 Economy) Descriptive Evaluations Free",
+        "365 Days Unlimited JIT MCQ Arena",
+        "Diagnostic Syllabus Heatmap & SM-2 Spaced Repetition Vault",
+        "National, State & District Scholars Arena Leaderboard",
+      ],
+      popular: false,
+    },
+    {
+      name: "Pay-As-You-Go FEFO Token Packs",
+      badge: "LOWEST PRICE IN INDIA • ₹20 / TEST",
+      price: "₹20",
+      unit: "per Economy Test (2 Tokens) • ₹50 Priority (5 Tokens)",
+      desc: "Top up tokens starting at ₹50. Purchased tokens NEVER expire and use FEFO protection.",
+      features: [
+        "Economy 24h: 2 Tokens (₹20) | Priority 1h: 5 Tokens (₹50) | Instant 5m: 10 Tokens",
+        "Upload Official Mock Test Papers or Past Attempt Papers",
+        "Custom Mock PDF Builder (30m–180m Duration)",
+        "1-Click Supreme AI Revaluation (Auto-Refunded if Score Shifts ≥10%)",
+      ],
+      popular: true,
+    },
+    {
+      name: "5+2 Pass Challenge Bundle",
+      badge: "ELIGIBLE FOR ₹1,00,000 PASS GUARANTEE",
+      price: "₹1,499",
+      unit: "/ group (All Subjects + Bonus Tokens)",
+      desc: `Full-length mock tests calibrated strictly to official ${data.examBody} rubrics.`,
+      features: [
+        "Backed by the ₹1,00,000 Risk-Reversal Pass Challenge",
+        "Printable Official Cover + Ruled Answer Booklets",
+        "4 Hybrid Delivery Modes (CBT, OMR, or Plain Paper)",
+        "Real Exam Coverage Audit + Socratic AI Tutor",
+      ],
+      popular: false,
+    },
+  ];
+
+  const coverageProof = data.coverageProof || {
+    attemptLabel: `${data.examBody} Recent Attempt Coverage Audit`,
+    coveragePct: "94.2%",
+    matchedCount: "118 / 125",
+    sampleRealQ: `Official ${data.examBody} Exam Question: Multi-step practical problem testing core statutory provisions and working notes.`,
+    sampleNexqQ: `NexQ AI Mock Question Bank: Matched 96% of the underlying statutory adjustments, working note tables, and step-marking scheme.`,
+    matchType: "Direct Structural & Conceptual Match (96% Similarity)",
+  };
+
+  const faqs = [
+    {
+      q: `How do I get 30 Free Welcome Tokens and Unlimited MCQ access on signup?`,
+      a: `Simply create your account using the right-hand panel and complete the 1-minute WhatsApp OTP verification. Our system automatically credits 30 Welcome Tokens to your FEFO Wallet (enough for 15 Economy 24-Hr evaluations or 6 Priority 1-Hr evaluations) plus a 365-day pass to the Unlimited JIT MCQ Arena.`,
+    },
+    {
+      q: `What are the 4 Hybrid Exam Patterns and Printable Official Booklets?`,
+      a: `NexQ AI supports every way you practice: Pattern 1 (All-Digital CBT), Pattern 2 (On-Screen CBT MCQs + Handwritten Descriptive PDF), Pattern 3 (Offline OMR Bubble Sheet + Ruled Booklet PDF), and Pattern 4 (100% Plain/Ruled Paper where AI extracts both handwritten MCQ choices and descriptive answers). You can also click "Print Official Answer Booklet" to download an authentic ${data.examBody}-style A4 PDF booklet with a candidate cover page, 35mm working-note margin, and 4-corner ArUco markers for automatic question slicing.`,
+    },
+    {
+      q: `How does the Unlimited JIT Question Pipeline and 6/6 Blind Solver work?`,
+      a: `Every MCQ in our database is solved blind from first principles by GPT-4o, Claude 3.5 Sonnet, and Gemini 2.5 Pro before you ever see it. When your unattempted question buffer in any chapter dips below 50, our Just-In-Time (JIT) background worker automatically generates and validates 25 fresh, amendment-updated questions so you never repeat stale questions.`,
+    },
+    {
+      q: `How does the "Language Improvement" & Statutory Keyword Engine help in Audit, Law, and Theory papers?`,
+      a: `In theory papers like Auditing and Corporate Law, students lose heavy marks for writing casual English instead of official study material keywords. Our Model A evaluator highlights your casual sentences and shows the exact SA/Section statutory phrasing required to score full marks.`,
+    },
+    {
+      q: `What if I disagree with the AI's marking on a specific question?`,
+      a: `Every evaluated answer booklet includes a 1-click "Apply for Supreme AI Revaluation" button (5 Tokens). Your booklet is escalated to our Supreme Appeals Examiner for an independent de-novo audit. If your total score shifts by 10% or more, the system automatically refunds 5 Tokens to your wallet!`,
+    },
+    {
+      q: `How do the Drag-and-Drop Smart Planner and Leave Override work?`,
+      a: `Once you select your target exam month and year, our algorithmic bin-packing engine distributes all syllabus chapters into balanced modular and full-syllabus mock tests. You can drag-and-drop chapters between tests, build custom 30-to-180 minute PDF mocks, or log a "Personal Leave" day to automatically recalculate your weekly pace.`,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      {/* Active Campaign Banner */}
-      {data.activeCampaign?.enabled && (
-        <div className="bg-indigo-600 text-center py-2 text-sm font-bold">
-          {data.activeCampaign.bannerText} 
-          <span className="ml-2 bg-slate-950 px-2 py-0.5 rounded text-indigo-300">
-            Use Code: {data.activeCampaign.promoCode}
-          </span>
-        </div>
-      )}
+    <div className="min-h-screen bg-[#060813] text-white flex overflow-x-hidden font-sans">
+      {/* ================================================================= */}
+      {/* LEFT PANEL: 10-SECTION HIGH-CONVERSION EXAM MARKETING CANVAS      */}
+      {/* ================================================================= */}
+      <motion.div
+        className="flex-1 min-h-screen pb-32"
+        style={{ marginRight: isPanelForcedOpen ? undefined : leftMargin }}
+        animate={{ marginRight: isPanelForcedOpen ? "30%" : undefined }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
+        {/* Top Campaign Strip */}
+        {data.activeCampaign?.enabled && (
+          <div className="bg-gradient-to-r from-indigo-950 via-[#12182B] to-emerald-950 border-b border-indigo-500/30 py-2.5 px-6 text-center text-xs">
+            <span className="font-bold text-indigo-200">{data.activeCampaign.bannerText}</span>
+            <span className="ml-3 px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
+              Code: {data.activeCampaign.promoCode}
+            </span>
+          </div>
+        )}
 
-      {/* Header */}
-      <header className="border-b border-slate-800 p-6 flex justify-between items-center max-w-6xl mx-auto">
-        <Link href="/" className="font-black text-xl flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">N</div>
-          NexQ AI
-        </Link>
-        <span className="px-3 py-1 bg-slate-900 border border-slate-700 rounded-full text-xs font-mono text-slate-300">
-          {data.examBody} Arena
-        </span>
-      </header>
-
-      {/* Hero Section */}
-      <main className="max-w-4xl mx-auto py-24 px-6 text-center space-y-8">
-        <h1 className="text-5xl font-black">{data.title}</h1>
-        <p className="text-xl text-slate-400">{data.description}</p>
-        
-        <div className="flex justify-center gap-4 pt-6">
-          <a href={data.checkoutUrl} className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-lg transition-transform hover:scale-105">
-            Enroll Now — {data.pricing}
-          </a>
-        </div>
-
-        {/* Features List */}
-        <div className="pt-16 grid sm:grid-cols-3 gap-6 text-left">
-          {data.features.map((feature: string, idx: number) => (
-            <div key={idx} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl">
-              <div className="text-indigo-400 font-black mb-2">✓</div>
-              <div className="text-sm font-bold">{feature}</div>
+        {/* Header */}
+        <header className="p-6 flex justify-between items-center max-w-5xl mx-auto border-b border-slate-800/60">
+          <Link href="/" className="font-black text-xl flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[#5B4BFF] rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              N
             </div>
-          ))}
+            <span>
+              NexQ <span className="text-indigo-400">AI</span>
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline-block px-3 py-1 bg-[#12182B] border border-slate-700 rounded-full text-xs font-mono text-indigo-300">
+              {data.examBody} NEW SCHEME VERIFIED
+            </span>
+            <button
+              onClick={() => setIsPanelForcedOpen(true)}
+              className="px-4 py-1.5 rounded-lg bg-[#5B4BFF] hover:bg-indigo-500 text-xs font-bold text-white cursor-pointer"
+            >
+              Claim 30 Free Tokens →
+            </button>
+          </div>
+        </header>
+
+        <div className="max-w-5xl mx-auto px-6 sm:px-12 space-y-24 mt-12">
+          {/* ============================================================= */}
+          {/* SECTION 1: HERO + STATS + 3-TIER EVALUATION SLA STRIP         */}
+          {/* ============================================================= */}
+          <section className="space-y-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                3-Model Consensus Grader • Attempt-Scoped Finance Act & RTP Amended
+              </div>
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                🎁 30 Free Welcome Tokens + 365d Unlimited MCQ Arena
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs sm:text-sm font-mono uppercase tracking-widest text-indigo-400">
+                {data.subtitle}
+              </p>
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.05] tracking-tight">
+                {data.title}
+              </h1>
+            </div>
+
+            <p className="text-base sm:text-xl text-slate-400 max-w-3xl leading-relaxed">
+              {data.description}
+            </p>
+
+            {/* Primary Action Buttons */}
+            <div className="flex flex-wrap gap-4 pt-2">
+              <a
+                href="#test-series-plans"
+                className="px-7 py-4 bg-[#5B4BFF] hover:bg-indigo-500 text-white font-black rounded-2xl text-sm shadow-xl shadow-indigo-600/30 transition-all"
+              >
+                Explore Free Grant & ₹20 Token Plans ↓
+              </a>
+              <a
+                href="#sample-checked-sheet"
+                className="px-6 py-4 bg-[#12182B] hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold rounded-2xl text-sm transition-all"
+              >
+                📄 Inspect Sample Checked Answer Sheet
+              </a>
+            </div>
+
+            {/* 4 Key Metrics Bar */}
+            {data.stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
+                {data.stats.map((st: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-2xl bg-[#12182B]/90 border border-slate-800/90 text-left"
+                  >
+                    <div className="text-2xl sm:text-3xl font-black text-white">{st.value}</div>
+                    <div className="text-xs text-slate-400 mt-1">{st.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 3 Evaluation Speed SLA Tiers (Directly from DescriptiveSubmission.tier) */}
+            <div className="grid sm:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-[#12182B]/60 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block">
+                    ECONOMY SLA (FREE_24H)
+                  </span>
+                  <span className="text-sm font-black text-white">Within 24 Hours</span>
+                </div>
+                <span className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-black">
+                  2 Tokens (₹20)
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#12182B]/90 border border-indigo-500/40 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-indigo-400 font-bold block">
+                    PRIORITY SLA (PRIORITY_1H)
+                  </span>
+                  <span className="text-sm font-black text-white">Within 1 Hour</span>
+                </div>
+                <span className="px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
+                  5 Tokens (₹50)
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#12182B]/60 border border-purple-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-purple-400 font-bold block">
+                    EXPRESS SLA (INSTANT_5M)
+                  </span>
+                  <span className="text-sm font-black text-white">Instant 60s–5 Mins</span>
+                </div>
+                <span className="px-3 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-black">
+                  10 Tokens (₹100)
+                </span>
+              </div>
+            </div>
+
+            {/* Hero Preview Image */}
+            <div className="relative w-full aspect-[21/9] rounded-3xl overflow-hidden border border-slate-800 shadow-2xl mt-6 group">
+              <img
+                src={IMAGES.heroPreview}
+                alt="NexQ AI Handwritten Answer Evaluation"
+                className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#060813] via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex flex-wrap justify-between items-center bg-[#060813]/90 backdrop-blur-md border border-slate-800 px-5 py-3 rounded-2xl text-xs">
+                <span className="text-emerald-400 font-bold">
+                  ✓ Bi-Directional Red-Pen Canvas • Click Any Rubric Step to Highlight on Sheet
+                </span>
+                <span className="font-mono text-indigo-300">
+                  300-DPI Auto-Zoom on Accounting Tables & Ledgers
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 2: INTERACTIVE 4-PILLAR PLATFORM ARCHITECTURE         */}
+          {/* ============================================================= */}
+          <section className="space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-slate-800 pb-6">
+              <div>
+                <span className="text-indigo-400 font-bold tracking-widest text-xs uppercase">
+                  Built-In Technology Moat
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black mt-1">
+                  4 Breakthrough Features No Manual Test Series Has
+                </h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "hybrid", label: "1. Printable Booklets & 4 Hybrid Modes" },
+                  { id: "heatmap", label: "2. Elo Heatmap & SM-2 Vault" },
+                  { id: "leaderboard", label: "3. National/State/District Arena" },
+                  { id: "planner", label: "4. Drag & Drop Planner + PDF Builder" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveEngineTab(tab.id as any)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      activeEngineTab === tab.id
+                        ? "bg-[#5B4BFF] text-white shadow-lg shadow-indigo-500/20"
+                        : "bg-[#12182B] text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-8 rounded-3xl bg-[#12182B] border border-slate-800 shadow-2xl">
+              {activeEngineTab === "hybrid" && (
+                <div className="grid lg:grid-cols-12 gap-8 items-center">
+                  <div className="lg:col-span-7 space-y-4">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      BOOKLET STUDIO + 4 HYBRID DELIVERY PATTERNS
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white">
+                      Print Official {data.examBody} Ruled Booklets or Write on Plain Paper
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Our Answer Booklet Studio compiles authentic A4 PDFs featuring candidate roll-number boxes, a
+                      6-question examiner marks grid, a 35mm left working-note margin, and{" "}
+                      <strong>4-corner ArUco fiducial markers + page QR metadata</strong>. Snap photos with your phone—our
+                      OpenCV pipeline deskews the page, slices answers by question number automatically, and crops
+                      accounting tables at 300 DPI.
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-3 pt-2 text-xs">
+                      <div className="p-3.5 rounded-xl bg-[#060813] border border-slate-800">
+                        <strong className="text-indigo-300 block">Pattern 1 & 2: CBT + Paper Booklet</strong>
+                        <span className="text-slate-400">
+                          Solve Part-I 30% Case-Scenario MCQs on screen + upload handwritten Part-II PDF.
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-[#060813] border border-slate-800">
+                        <strong className="text-emerald-300 block">Pattern 3 & 4: OMR or 100% Plain Paper</strong>
+                        <span className="text-slate-400">
+                          Darken Page-1 OMR bubbles or write MCQ option letters directly on plain notebook pages!
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-5 bg-[#060813] border border-slate-800 rounded-2xl p-6 space-y-3 font-mono text-xs">
+                    <div className="flex justify-between items-center text-indigo-400 border-b border-slate-800 pb-2">
+                      <span>[▛ ARUCO FIDUCIAL TL]</span>
+                      <span>[NEXQ_META:SUB=402|P=2]</span>
+                    </div>
+                    <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-slate-300 space-y-2">
+                      <div className="text-emerald-400 font-bold">✓ Pre-Flight Upload Veto Check Passed</div>
+                      <div>• Laplacian Blur & Orientation Verified</div>
+                      <div>• Page-1 OMR Bubble Grid Extracted (15/15 MCQs)</div>
+                      <div>• 300-DPI Zoomed Crop: Balance Sheet Working Note 2</div>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 pt-2 border-t border-slate-800">
+                      <span>[▙ ARUCO BL]</span>
+                      <span>35mm Working Note Margin</span>
+                      <span>[▟ ARUCO BR]</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngineTab === "heatmap" && (
+                <div className="grid lg:grid-cols-12 gap-8 items-center">
+                  <div className="lg:col-span-7 space-y-4">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      CONTINUOUS-ELO MASTERY + SM-2 SPACED REPETITION VAULT
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white">
+                      Diagnostic Syllabus Heatmap & Unlimited JIT Question Pipeline
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Every MCQ you answer and every descriptive rubric step you are graded on feeds our{" "}
+                      <strong>Continuous-Interpolation Elo Engine</strong>. Watch your entire {data.examBody} syllabus
+                      tree light up in Red (&lt;40% Critical Weakness), Amber (40–74% Intermediate), and Green (&ge;75%
+                      Mastered). Any question you get wrong is automatically scheduled into your{" "}
+                      <strong>SM-2 Spaced Repetition Vault</strong> (1d $\rightarrow$ 6d $\rightarrow$ 45d intervals) so
+                      you never forget a concept before exam day.
+                    </p>
+                    <ul className="space-y-2 text-xs text-slate-300">
+                      <li>
+                        ✓ <strong>Auto-Adaptive Difficulty:</strong> Automatically shifts from Easy $\rightarrow$ Medium
+                        $\rightarrow$ Hard as your Elo rises.
+                      </li>
+                      <li>
+                        ✓ <strong>Official Past Exam Lineage:</strong> Click &ldquo;Official Past Exam Match&rdquo; on
+                        any synthetic question to inspect the exact PYQ it was modeled on.
+                      </li>
+                      <li>
+                        ✓ <strong>Built-in Socratic AI Tutor & Scratchpad:</strong> Ask AI why an option is wrong right
+                        inside your practice workspace.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="lg:col-span-5 bg-[#060813] border border-slate-800 rounded-2xl p-6 space-y-4 text-xs">
+                    <div className="flex justify-between items-center font-bold text-white">
+                      <span>Live Syllabus Vulnerability Heatmap</span>
+                      <span className="text-emerald-400">Readiness: 74%</span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[88, 92, 76, 45, 22, 81, 79, 64, 30, 85, 90, 55, 77, 82, 35, 91, 68, 84].map((sc, i) => (
+                        <div
+                          key={i}
+                          className={`h-9 rounded-lg flex items-center justify-center font-mono font-bold text-[11px] border ${
+                            sc >= 75
+                              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                              : sc >= 40
+                              ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                              : "bg-rose-500/25 border-rose-500/40 text-rose-300"
+                          }`}
+                        >
+                          {sc}%
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 text-purple-200 flex justify-between items-center">
+                      <span>🧠 SM-2 Revision Vault Due Today:</span>
+                      <span className="font-mono font-bold">14 Flashcards</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngineTab === "leaderboard" && (
+                <div className="grid lg:grid-cols-12 gap-8 items-center">
+                  <div className="lg:col-span-7 space-y-4">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      NATIONAL, STATE & DISTRICT SCHOLARS ARENA
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white">
+                      Compete in Weekly Sprints & See Peer Accuracy on Every Question
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Preparation shouldn’t happen in isolation. Enter your 6-digit PIN code to lock in your home
+                      jurisdiction and climb from <strong>Apprentice 🛡️</strong> to <strong>Grandmaster 👑</strong>{" "}
+                      across District, State, and National leaderboards. Plus, after every single question you answer,
+                      see real-time cohort telemetry showing how many students attempted that question and what
+                      percentage got it right.
+                    </p>
+                  </div>
+
+                  <div className="lg:col-span-5 bg-[#060813] border border-slate-800 rounded-2xl p-6 space-y-3 text-xs">
+                    <div className="flex justify-between items-center text-amber-400 font-bold border-b border-slate-800 pb-2">
+                      <span>🏆 NATIONAL ARENA (THIS WEEK)</span>
+                      <span>Grandmaster League 👑</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-xl bg-slate-900 flex justify-between items-center">
+                        <span>#1 👑 Aarav S. (Mumbai, MH)</span>
+                        <span className="font-mono font-bold text-emerald-400">94.8%</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-indigo-950/50 border border-indigo-500/40 flex justify-between items-center">
+                        <span className="font-bold text-white">#4 💎 You (+12 Spots ▲)</span>
+                        <span className="font-mono font-bold text-indigo-300">86.2%</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-900 flex justify-between items-center text-slate-300">
+                        <span>👥 Peer Stat on Q#14:</span>
+                        <span className="text-amber-300 font-bold">618 Attempted • Only 19% Correct</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngineTab === "planner" && (
+                <div className="grid lg:grid-cols-12 gap-8 items-center">
+                  <div className="lg:col-span-7 space-y-4">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      DRAG-AND-DROP SMART PLANNER + CUSTOM PDF BUILDER
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white">
+                      Algorithmic Bin-Packing Schedule & 1-Click Leave Recalculation
+                    </h3>
+                    <p className="text-sm text-slate-300 leading-relaxed">
+                      Our Smart Planner automatically partitions all {data.examBody} chapters by historical PYQ
+                      weightage into <strong>3 Modular Part Tests + 2 Full-Subject Mocks</strong> per paper. Drag and
+                      drop chapters across tests to match your coaching class progress, generate custom{" "}
+                      <strong>30m to 180m PDF Mock Papers</strong> on demand, or log a{" "}
+                      <strong>Personal Leave / Bunked Test Override</strong> to automatically recalculate your weekly
+                      study pace.
+                    </p>
+                  </div>
+
+                  <div className="lg:col-span-5 bg-[#060813] border border-slate-800 rounded-2xl p-6 space-y-3 text-xs">
+                    <div className="flex justify-between items-center font-bold text-sky-400 border-b border-slate-800 pb-2">
+                      <span>📅 SMART MOCK PLANNER (3+2 BIN-PACKED)</span>
+                      <span>Weightage Balanced</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+                      <div className="flex justify-between font-bold text-white">
+                        <span>Mock #1 (Modular Part 1)</span>
+                        <span className="text-emerald-400">34.5W</span>
+                      </div>
+                      <div className="text-slate-400">⋮⋮ Ind AS 115 Revenue (14.0w) • Ind AS 116 Leases (12.5w)</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+                      <span>🏖️ Personal Leave Logged (2 Days)</span>
+                      <span className="text-indigo-300 font-bold">Auto-Shifted →</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 3: SAMPLE CHECKED COPY & "REASON FOR EVERY CUT"       */}
+          {/* ============================================================= */}
+          <section id="sample-checked-sheet" className="space-y-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-slate-800 pb-6">
+              <div>
+                <span className="text-rose-400 font-bold tracking-widest text-xs uppercase">
+                  Market Reality Check • Why Manual Checking Fails You
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black mt-1">
+                  See Exactly Where Your Marks Go. Line by Line.
+                </h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "numerical", label: "FR / Costing Working Notes" },
+                  { id: "audit", label: "Audit & Law Language Fix" },
+                  { id: "mcq", label: "30% Case-Scenario MCQs" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveDefectTab(t.id as any)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      activeDefectTab === t.id
+                        ? "bg-[#5B4BFF] text-white"
+                        : "bg-[#12182B] text-slate-400 border border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 bg-[#12182B] border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-5">
+                {activeDefectTab === "numerical" && (
+                  <>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-indigo-300 font-bold">
+                        SAMPLE CHECKED SHEET: FR (Ind AS 16 & 37 Decommissioning)
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                        Awarded: 6.5 / 8.0 Marks
+                      </span>
+                    </div>
+                    <div className="space-y-3 text-xs sm:text-sm">
+                      <div className="p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/30">
+                        <div className="font-bold text-emerald-300">
+                          ✓ Working Note 1: Present Value of Restoration Liability (+2.5 / 2.5 Marks)
+                        </div>
+                        <p className="text-slate-300 mt-1">
+                          Correctly discounted ₹50,00,000 @ 8% for 10 years (PV factor 0.4632 = ₹23,16,000) and
+                          capitalized into PPE cost as per Ind AS 16 Para 16(c).
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/30">
+                        <div className="font-bold text-emerald-300">
+                          ✓ Working Note 2: Annual Depreciation Charge (+2.0 / 2.0 Marks)
+                        </div>
+                        <p className="text-slate-300 mt-1">
+                          Depreciated total carrying amount (₹1,23,16,000 / 10 yrs = ₹12,31,600) accurately.
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-500/40">
+                        <div className="font-bold text-rose-300">
+                          ✗ Reason for 1.5 Mark Cut: Unwinding of Discount Omitted (-1.5 Marks)
+                        </div>
+                        <p className="text-slate-300 mt-1">
+                          <strong>What you missed:</strong> Under Ind AS 37, finance cost of ₹1,85,280 (₹23,16,000 × 8%)
+                          must be charged to P&L at Year-1 end and added to the provision balance.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {activeDefectTab === "audit" && (
+                  <>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-purple-300 font-bold">
+                        AUDIT & LAW &ldquo;BOOKISH LANGUAGE IMPROVEMENT&rdquo; ENGINE
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-bold">
+                        Keyword Upgrade: +2.0 Marks Saved
+                      </span>
+                    </div>
+                    <div className="space-y-4 text-xs sm:text-sm">
+                      <div className="p-4 rounded-2xl bg-rose-950/25 border border-rose-500/30">
+                        <div className="font-bold text-rose-300">
+                          ✗ What You Wrote (Casual Student Language — Scores 1/4 Marks):
+                        </div>
+                        <p className="text-slate-300 italic mt-1">
+                          &ldquo;The auditor should check the physical stock himself and if he cannot go to the factory,
+                          he should ask somebody else or check old bills.&rdquo;
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-emerald-950/25 border border-emerald-500/30">
+                        <div className="font-bold text-emerald-300">
+                          ✓ NexQ AI Statutory Rewrite (ICAI SA 501 Examiner Terminology — Scores 4/4 Marks):
+                        </div>
+                        <p className="text-slate-200 mt-1">
+                          &ldquo;As per <strong>SA 501 (Audit Evidence—Specific Considerations)</strong>, where
+                          inventory is material, the auditor shall obtain{" "}
+                          <strong>sufficient appropriate audit evidence</strong> regarding existence and condition by
+                          attendance at physical inventory counting, or perform{" "}
+                          <strong>alternative audit procedures</strong> if attendance is impracticable.&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {activeDefectTab === "mcq" && (
+                  <>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-sky-300 font-bold">
+                        30:70 INTEGRATED CASE-SCENARIO MCQ SIMULATOR
+                      </span>
+                      <span className="px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 font-bold">
+                        Unlimited 6/6 Blind-Solved MCQs
+                      </span>
+                    </div>
+                    <div className="space-y-3 text-xs sm:text-sm text-slate-300">
+                      <p>
+                        Students lose crucial time reading 2-page integrated case scenarios in the exam hall. NexQ AI
+                        trains your speed with:
+                      </p>
+                      <ul className="space-y-2.5">
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>
+                            <strong>2-Marks Integrated Case Scenarios:</strong> Multi-para practical cases combining 4–5
+                            linked MCQs just like ICAI’s 30-mark objective booklet.
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>
+                            <strong>Peer Cohort Accuracy & Speed Telemetry:</strong> Shows exact cohort accuracy
+                            percentage and whether you spent 45s or 4m compared to AIR rankers.
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>
+                            <strong>Official Past Exam Lineage:</strong> 1-click popup showing the historical past exam
+                            question each synthetic MCQ was modeled on.
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="lg:col-span-5 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl relative">
+                <img
+                  src={IMAGES.stepMarkingMacro}
+                  alt="Red Pen Step Marking"
+                  className="w-full h-auto object-cover"
+                />
+                <div className="absolute bottom-3 left-3 right-3 bg-[#060813]/90 backdrop-blur border border-slate-800 px-4 py-2.5 rounded-xl flex justify-between items-center text-xs">
+                  <span className="text-emerald-400 font-bold">Bi-Directional Step Canvas</span>
+                  <span className="text-slate-400 font-mono">Auto-Refund Revaluation</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 4: AUDITED REAL EXAM COVERAGE PROOF                   */}
+          {/* ============================================================= */}
+          <section className="rounded-3xl bg-gradient-to-r from-indigo-950/50 via-[#12182B] to-slate-950 border border-indigo-500/30 p-8 sm:p-10 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <span className="text-emerald-400 font-bold tracking-widest text-xs uppercase">
+                  Verified Predictive Alignment • {coverageProof.attemptLabel}
+                </span>
+                <h2 className="text-2xl sm:text-4xl font-black mt-1">
+                  {coverageProof.coveragePct} Real {data.examBody} Exam Coverage Proof
+                </h2>
+              </div>
+              <span className="px-4 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono font-black text-sm">
+                {coverageProof.matchedCount} Questions Matched
+              </span>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 text-xs sm:text-sm">
+              <div className="p-6 rounded-2xl bg-[#060813] border border-slate-800 space-y-2">
+                <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">
+                  OFFICIAL {data.examBody} EXAM PAPER QUESTION
+                </span>
+                <p className="text-slate-200 font-medium leading-relaxed">{coverageProof.sampleRealQ}</p>
+              </div>
+              <div className="p-6 rounded-2xl bg-indigo-950/30 border border-indigo-500/40 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-mono uppercase text-indigo-300 font-bold">
+                    NEXQ AI MOCK QUESTION BANK EQUIVALENT
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                    {coverageProof.matchType}
+                  </span>
+                </div>
+                <p className="text-white font-medium leading-relaxed">{coverageProof.sampleNexqQ}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 5: FLEXIBLE TEST SERIES PLANS (FREE / FEFO / ₹1L)     */}
+          {/* ============================================================= */}
+          <section id="test-series-plans" className="space-y-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+              <div>
+                <span className="text-indigo-400 font-bold tracking-widest text-xs uppercase">
+                  Zero Lock-In • FEFO Token Economy
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black mt-1">
+                  Start With 30 Free Tokens. Pay ₹20/Test Thereafter.
+                </h2>
+              </div>
+
+              <div className="flex items-center bg-[#12182B] p-1 rounded-xl border border-slate-800 text-xs font-bold">
+                <button
+                  onClick={() => setScheduleMode("unscheduled")}
+                  className={`px-3.5 py-2 rounded-lg transition-colors cursor-pointer ${
+                    scheduleMode === "unscheduled"
+                      ? "bg-[#5B4BFF] text-white"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Unscheduled (Write Anytime)
+                </button>
+                <button
+                  onClick={() => setScheduleMode("scheduled")}
+                  className={`px-3.5 py-2 rounded-lg transition-colors cursor-pointer ${
+                    scheduleMode === "scheduled"
+                      ? "bg-[#5B4BFF] text-white"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Scheduled (Smart Planner)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6">
+              {plans.map((p: any, i: number) => (
+                <div
+                  key={i}
+                  className={`p-7 rounded-3xl flex flex-col justify-between border transition-all ${
+                    p.popular
+                      ? "bg-gradient-to-b from-[#161E38] to-[#0C1222] border-indigo-500 shadow-2xl shadow-indigo-500/15 relative"
+                      : "bg-[#12182B] border-slate-800"
+                  }`}
+                >
+                  <div>
+                    <span
+                      className={`inline-block text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full mb-4 ${
+                        p.popular
+                          ? "bg-[#5B4BFF] text-white"
+                          : "bg-slate-900 text-indigo-300 border border-slate-700"
+                      }`}
+                    >
+                      {p.badge}
+                    </span>
+                    <h3 className="text-xl font-black text-white">{p.name}</h3>
+                    <div className="mt-3 flex items-baseline gap-1.5">
+                      <span className="text-3xl font-black text-emerald-400">{p.price}</span>
+                      <span className="text-xs text-slate-400">{p.unit}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-3 leading-relaxed">{p.desc}</p>
+
+                    <ul className="space-y-2.5 mt-6 pt-5 border-t border-slate-800/80 text-xs text-slate-300">
+                      {p.features.map((feat: string, fIdx: number) => (
+                        <li key={fIdx} className="flex items-start gap-2">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={() => setIsPanelForcedOpen(true)}
+                    className={`w-full mt-8 py-3.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      p.popular
+                        ? "bg-[#5B4BFF] hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30"
+                        : "bg-slate-900 hover:bg-slate-800 text-white border border-slate-700"
+                    }`}
+                  >
+                    Activate {p.name} →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 6: SUBJECT-BY-SUBJECT & LEVEL SYLLABUS MATRIX         */}
+          {/* ============================================================= */}
+          <section className="space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <span className="text-emerald-400 font-bold tracking-widest text-xs uppercase">
+                  100% {data.examBody} New Scheme Coverage
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black mt-1">
+                  Paper-Wise Rubric & Syllabus Matrix
+                </h2>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {levels.map((lvl: any, idx: number) => (
+                  <button
+                    key={lvl.id}
+                    onClick={() => setSelectedLevel(idx)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      selectedLevel === idx
+                        ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20"
+                        : "bg-[#12182B] text-slate-300 border border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    {lvl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {levels[selectedLevel]?.subjects.map((sub: any, sIdx: number) => (
+                <div
+                  key={sIdx}
+                  className="p-6 rounded-2xl bg-[#12182B] border border-slate-800 hover:border-indigo-500/50 transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex justify-between items-center text-xs font-mono text-indigo-400 mb-2">
+                      <span>{sub.code}</span>
+                      <span className="text-emerald-400">100 Marks</span>
+                    </div>
+                    <h3 className="text-base font-black text-white">{sub.name}</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t border-slate-800/80">
+                    {sub.tags.map((tg: string, tIdx: number) => (
+                      <span
+                        key={tIdx}
+                        className="text-[10px] px-2 py-0.5 rounded bg-[#060813] text-slate-300 border border-slate-800"
+                      >
+                        {tg}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 7: "YOU VS AIR TOPPER VS AVG" BOOSTER ANALYTICS       */}
+          {/* ============================================================= */}
+          <section className="rounded-3xl bg-[#12182B] border border-slate-800 p-8 sm:p-10 space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <span className="text-indigo-400 font-bold tracking-widest text-xs uppercase">
+                  Booster & Drill-Down Analytics (Inspired by AIR Ranker Benchmarks)
+                </span>
+                <h2 className="text-2xl sm:text-4xl font-black mt-1">
+                  You vs. AIR Topper vs. Batch Average
+                </h2>
+              </div>
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Includes AI Revision Notes & Exam Pointers
+              </span>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl bg-[#060813] border border-slate-800 space-y-4">
+                <div className="text-xs font-bold text-slate-400 uppercase">
+                  Paper 1: Financial Reporting Benchmark
+                </div>
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-bold text-emerald-400">AIR Topper Score</span>
+                      <span className="font-mono font-bold">78 / 100</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-400 w-[78%]" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-bold text-indigo-400">Your Current Score</span>
+                      <span className="font-mono font-bold">62 / 100</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#5B4BFF] w-[62%]" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-bold text-slate-400">Batch Average</span>
+                      <span className="font-mono">44 / 100</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-600 w-[44%]" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-[#060813] border border-slate-800 space-y-3">
+                <div className="text-xs font-bold text-amber-400 uppercase">
+                  ⚡ Booster Analysis: Lost Marks Recovery
+                </div>
+                <div className="text-3xl font-black text-white">+11.5 Marks</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Shows exactly what you <strong>could have scored (73.5/100)</strong> by fixing avoidable silly
+                  mistakes: missing Ind AS paragraph numbers (+4m), un-tallied working note sub-totals (+4.5m), and SA
+                  keywords (+3m).
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-[#060813] border border-slate-800 space-y-3">
+                <div className="text-xs font-bold text-emerald-400 uppercase">
+                  📌 Half-Page AI Revision Notes & Pointers
+                </div>
+                <div className="text-3xl font-black text-white">100% Concept Mapped</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Every syllabus concept includes concise half-page AI-synthesized revision notes, memory triggers, and
+                  attempt-scoped statutory amendment alerts.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 8: COMPARISON TABLE VS MANUAL PLATFORMS               */}
+          {/* ============================================================= */}
+          <section className="space-y-8">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl sm:text-4xl font-black">
+                NexQ AI vs. Traditional Manual {data.examBody} Test Series
+              </h2>
+              <p className="text-slate-400 text-sm">
+                Why top aspirants are ditching slow, generic manual test series portals.
+              </p>
+            </div>
+            <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-[#12182B]">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                <thead>
+                  <tr className="bg-[#0C1222] border-b border-slate-800 text-slate-300">
+                    <th className="p-4 sm:p-5 font-bold">Evaluation Parameter</th>
+                    <th className="p-4 sm:p-5 font-black text-indigo-300 bg-indigo-950/30 border-x border-indigo-500/20">
+                      NexQ AI (3-Model Consensus)
+                    </th>
+                    <th className="p-4 sm:p-5 font-bold">Manual Test Series Portals</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80 text-slate-300">
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Checking Turnaround Time</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      ⚡ 5-Min Express • 1-Hr Priority • 24-Hr Economy
+                    </td>
+                    <td className="p-4 sm:p-5 text-rose-400">2 to 8 Working Days Delay</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Free Trial & Per-Paper Cost</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      ✓ 30 Free Tokens on Signup (Up to 15 Papers) • ₹20/Test Thereafter
+                    </td>
+                    <td className="p-4 sm:p-5">₹1,500–₹3,500 Upfront Package Required</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Evaluator Quality & Revaluation</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      ✓ 3-Model AI + 1-Click Supreme Revaluation (Auto-Refund if ≥10% Shift)
+                    </td>
+                    <td className="p-4 sm:p-5">Checked by hurried freelancers paid ₹20/copy</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Working Note & Step Marks</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      ✓ 300-DPI Table Crop + Bi-Directional Red-Pen Canvas
+                    </td>
+                    <td className="p-4 sm:p-5">Vague red ticks with &ldquo;Improve presentation&rdquo;</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">MCQ Engine, Heatmap & Leaderboard</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      ✓ Unlimited 6/6 Blind-Solved MCQs + Elo Heatmap + District/State/National Rank
+                    </td>
+                    <td className="p-4 sm:p-5">Static PDFs only</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 sm:p-5 font-semibold text-white">Pass Guarantee</td>
+                    <td className="p-4 sm:p-5 font-bold text-emerald-400 bg-indigo-950/15 border-x border-indigo-500/20">
+                      🏆 Up to ₹1,00,000 Pass Challenge Guarantee
+                    </td>
+                    <td className="p-4 sm:p-5">At most fee refund or none</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 9: ₹1,00,000 PASS CHALLENGE                           */}
+          {/* ============================================================= */}
+          <section className="rounded-3xl bg-gradient-to-br from-emerald-950/40 to-slate-950 border border-emerald-500/30 p-8 sm:p-12 grid lg:grid-cols-12 gap-10 items-center">
+            <div className="lg:col-span-7 space-y-5">
+              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-black">
+                100% RISK-REVERSAL GUARANTEE
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black">
+                The ₹1,00,000 {data.examBody} Pass Challenge
+              </h2>
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Other platforms promise a basic fee refund. We back your preparation with up to{" "}
+                <strong>₹1,00,000</strong>. Complete the 5+2 Mock Series schedule, hit the 60% Consensus benchmark
+                score, and clear your official {data.examBody} attempt—or claim under our Pass Challenge terms.
+              </p>
+              <button
+                onClick={() => setIsPanelForcedOpen(true)}
+                className="px-7 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-sm transition-colors cursor-pointer"
+              >
+                Enroll & Activate ₹1L Pass Challenge →
+              </button>
+            </div>
+            <div className="lg:col-span-5 flex justify-center">
+              <img
+                src={IMAGES.passChallengeBadge}
+                alt="₹1,00,000 Pass Challenge"
+                className="w-60 h-60 rounded-2xl shadow-2xl border border-emerald-500/30"
+              />
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* SECTION 10: EXAM-SPECIFIC FAQs                                */}
+          {/* ============================================================= */}
+          <section className="space-y-8 pb-12">
+            <div className="text-center space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                Got Doubts About Evaluation?
+              </span>
+              <h2 className="text-3xl font-black">Frequently Asked Questions</h2>
+            </div>
+            <div className="max-w-4xl mx-auto space-y-3">
+              {faqs.map((f, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl bg-[#12182B] border border-slate-800 overflow-hidden"
+                >
+                  <button
+                    onClick={() => setActiveFaq(activeFaq === i ? null : i)}
+                    className="w-full p-5 sm:p-6 text-left flex justify-between items-center gap-4 font-bold text-sm sm:text-base text-white hover:text-indigo-400 transition-colors cursor-pointer"
+                  >
+                    <span>{f.q}</span>
+                    <span className="text-indigo-400 font-mono text-xl">
+                      {activeFaq === i ? "−" : "+"}
+                    </span>
+                  </button>
+                  {activeFaq === i && (
+                    <div className="px-5 sm:px-6 pb-6 text-xs sm:text-sm text-slate-400 leading-relaxed border-t border-slate-800/50 pt-4">
+                      {f.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-      </main>
+      </motion.div>
+
+      {/* ================================================================= */}
+      {/* RIGHT PANEL: SCROLL-SYNCED COLLAPSING LOGIN PANE                  */}
+      {/* ================================================================= */}
+      <motion.div
+        className="fixed top-0 right-0 h-screen bg-[#0C1222] border-l border-slate-800/80 shadow-2xl z-50 flex flex-col overflow-hidden"
+        style={{ width: isPanelForcedOpen ? undefined : panelWidth }}
+        animate={{ width: isPanelForcedOpen ? "30%" : undefined }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
+        {/* Collapsed Strip State */}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center cursor-pointer hover:bg-slate-800/50 transition-colors group z-10"
+          style={{
+            opacity: isPanelForcedOpen ? 0 : textOpacity,
+            pointerEvents: isScrolledPast && !isPanelForcedOpen ? "auto" : "none",
+          }}
+          animate={{ opacity: isPanelForcedOpen ? 0 : undefined }}
+          onClick={() => setIsPanelForcedOpen(true)}
+        >
+          <div className="absolute top-6 w-2 h-2 rounded-full bg-[#5B4BFF] animate-pulse shadow-[0_0_10px_#5B4BFF]" />
+          <div className="rotate-90 whitespace-nowrap text-sm font-black tracking-widest text-slate-400 group-hover:text-white transition-colors">
+            ▶ OPEN {data.examBody} LOGIN (30 FREE TOKENS)
+          </div>
+        </motion.div>
+
+        {/* Full Open Login Form State */}
+        <motion.div
+          className="absolute top-0 right-0 h-full w-[30vw] min-w-[380px] flex flex-col items-center justify-center p-6 sm:p-8 z-20"
+          style={{
+            opacity: isPanelForcedOpen ? undefined : formOpacity,
+            pointerEvents: isPanelForcedOpen || !isScrolledPast ? "auto" : "none",
+          }}
+          animate={{ opacity: isPanelForcedOpen ? 1 : undefined }}
+        >
+          {isPanelForcedOpen && (
+            <button
+              onClick={() => setIsPanelForcedOpen(false)}
+              className="absolute top-6 left-6 w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
+
+          <div className="w-full max-w-[380px] bg-[#12182B] border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            {/* Free Welcome Grant Pill above Login Tabs */}
+            <div className="mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center">
+              <span className="text-[11px] font-black text-emerald-300 block">
+                🎁 30 FREE WELCOME TOKENS ON SIGNUP
+              </span>
+              <span className="text-[10px] text-slate-300">
+                Up to 15 Free Paper Evaluations + 365d Unlimited MCQ Arena
+              </span>
+            </div>
+
+            {/* Google GSI Script for 1-Click Google Login right on the Exam Page */}
+            <Script
+              src="https://accounts.google.com/gsi/client"
+              strategy="lazyOnload"
+              onReady={() => {
+                const win = window as any;
+                if (win.google && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+                  win.google.accounts.id.initialize({
+                    client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+                    callback: handleGoogleCallback,
+                  });
+                  const btnEl = document.getElementById("marketing-google-btn");
+                  if (btnEl) {
+                    win.google.accounts.id.renderButton(btnEl, {
+                      theme: "filled_blue",
+                      size: "large",
+                      width: 330,
+                    });
+                  }
+                }
+              }}
+            />
+
+            {/* 3-Way Tab Switcher */}
+            <div className="flex bg-[#060813] rounded-xl p-1 mb-4">
+              <button
+                type="button"
+                onClick={() => { setAuthTab("email"); setOtpSent(false); setAuthError(""); }}
+                className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+                  authTab === "email" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthTab("phone"); setOtpSent(false); setAuthError(""); }}
+                className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+                  authTab === "phone" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Phone OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthTab("register"); setOtpSent(false); setAuthError(""); }}
+                className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+                  authTab === "register" ? "bg-[#5B4BFF] text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+
+            {authError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+                {authError}
+              </div>
+            )}
+            {authSuccess && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs">
+                {authSuccess}
+              </div>
+            )}
+
+            {/* PHONE OTP FORM */}
+            {authTab === "phone" ? (
+              <form onSubmit={handleVerifyWhatsAppOtp} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">WhatsApp Number</label>
+                  <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                    <span className="text-xs font-bold text-slate-400">+91</span>
+                    <input
+                      type="tel"
+                      required
+                      disabled={otpSent}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="98765 43210"
+                      className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {otpSent && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Enter 6-Digit WhatsApp OTP</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl text-center text-lg font-mono tracking-widest text-white outline-none focus:border-[#5B4BFF]"
+                    />
+                  </div>
+                )}
+
+                {!otpSent ? (
+                  <button
+                    type="button"
+                    disabled={authLoading}
+                    onClick={handleSendWhatsAppOtp}
+                    className="w-full py-3.5 mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg transition-all cursor-pointer"
+                  >
+                    {authLoading ? "Sending OTP..." : "Send WhatsApp OTP"}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg transition-all cursor-pointer"
+                  >
+                    {authLoading ? "Verifying..." : "Verify & Enter Arena →"}
+                  </button>
+                )}
+              </form>
+            ) : (
+              /* EMAIL LOGIN & REGISTER FORM */
+              <form onSubmit={handleEmailOrRegisterSubmit} className="space-y-4">
+                {authTab === "register" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">Full Name</label>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Deepak Bohra"
+                        className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!otpSent ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-400">Email Address</label>
+                      <div className="flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF]">
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="student@mcqengine.com"
+                          className="bg-transparent w-full text-sm text-white placeholder-slate-600 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-semibold text-slate-400">Password</label>
+                        <a
+                          href={`${APP_BASE}/login?exam=${data.slug}`}
+                          className="text-xs text-[#5B4BFF] hover:underline"
+                        >
+                          Forgot?
+                        </a>
+                      </div>
+                      
+                      {/* --- UPDATED PASSWORD INPUT WITH EYE TOGGLE --- */}
+                      <div className="relative flex items-center gap-3 px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl focus-within:border-[#5B4BFF] transition-colors">
+                        <svg
+                          className="w-5 h-5 text-slate-500 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                          />
+                        </svg>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          className="bg-transparent w-full pr-10 text-sm text-white tracking-widest placeholder-slate-600 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute right-4 text-slate-500 hover:text-slate-300 transition-colors focus:outline-none cursor-pointer"
+                          tabIndex={-1}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {/* -------------------------------------------- */}
+                      
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400">
+                      Enter 6-Digit Force-Logout Override Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 bg-[#060813] border border-slate-800 rounded-xl text-center text-lg font-mono tracking-widest text-white outline-none focus:border-[#5B4BFF]"
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full py-3.5 mt-2 bg-[#5B4BFF] hover:bg-[#4b3de3] disabled:opacity-50 rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                >
+                  {authLoading
+                    ? "Authenticating..."
+                    : otpSent
+                    ? "Verify & Force Login"
+                    : authTab === "register"
+                    ? "Claim 30 Free Tokens & Register"
+                    : "Sign In to Arena"}
+                </button>
+              </form>
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-4">
+              <div className="flex-1 h-px bg-slate-800" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Or Continue With
+              </span>
+              <div className="flex-1 h-px bg-slate-800" />
+            </div>
+
+            {/* Target element rendered by Google GSI Script */}
+            <div id="marketing-google-btn" className="w-full flex justify-center mb-2 min-h-[44px]"></div>
+
+            {/* Fallback button if Google script is delayed */}
+
+              
+
+            <a
+              href={`${APP_BASE}/login?exam=${data.slug}&provider=google`}
+              className="w-full flex items-center justify-between px-4 py-3 bg-[#1A73E8] hover:bg-blue-600 rounded-xl transition-colors"
+            >
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-bold text-white">Continue with Google</span>
+                <span className="text-[10px] text-blue-100">Instant 1-Click {data.examBody} Access</span>
+              </div>
+              <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+              </div>
+            </a>
+
+            <a
+              href={`${APP_BASE}/institute/login`}
+              className="block text-center mt-5 text-[11px] text-[#5B4BFF] hover:text-indigo-400 transition-colors"
+            >
+              Institute or Organization Admin? Log in here →
+            </a>
+          </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
@@ -1255,54 +2981,192 @@ FILE: ./config/exams.ts
 export const EXAM_CONFIG: Record<string, any> = {
   ca: {
     slug: "ca",
-    name: "CA Final & Inter",
-    title: "CA Final AI Test Series & ₹1L Pass Challenge",
-    description: "Upload handwritten ICAI answers. Get Ind AS and working note step-marking in 60s.",
+    name: "CA Final, Inter & Foundation",
+    title: "CA AI Test Series, Unlimited MCQ Engine & ₹1L Pass Challenge",
+    subtitle: "ICAI New Scheme 30:70 Case-Scenario MCQ + Step-Wise Descriptive Grader",
+    description:
+      "Start with 5+ Free AI-Evaluated Mock Tests (30 Welcome Tokens) & 365-Day Unlimited MCQ Arena access. Upload your handwritten CA Final, Inter, or Official ICAI MTP sheets for 60-second Red-Pen step marking, Ind AS/SA audits, and National/State/District Rank Leaderboards.",
     examBody: "ICAI",
     activeCampaign: {
       enabled: true,
-      bannerText: "MAY 2027 ATTEMPT: Enroll in the ₹1L Pass Challenge today.",
-      promoCode: "CAMAY27",
+      bannerText: "FREE WELCOME GRANT: Verify WhatsApp & Get 30 Free Tokens (Up to 15 Descriptive Evaluations) + Unlimited MCQ Arena!",
+      promoCode: "SCHOLAR30",
     },
-    features: ["Ind AS & SA Citation Audits", "Step-Wise Working Note Marks", "ICAI 30:70 Hybrid Scheme Calibration"],
-    pricing: "₹1,499 / module",
-    checkoutUrl: "https://app.nexqai.in/enroll?exam=ca"
+    stats: [
+      { value: "5+ Free", label: "Descriptive Tests on Signup (30 Tokens)" },
+      { value: "₹20 / Paper", label: "Lowest Evaluation Cost (2 Tokens)" },
+      { value: "Unlimited", label: "JIT 6/6 Blind-Verified MCQ Pipeline" },
+      { value: "94.2%", label: "Audited Real ICAI Exam Coverage" },
+    ],
+    coverageProof: {
+      attemptLabel: "ICAI CA Final & Inter Recent Attempt Audit",
+      coveragePct: "94.2%",
+      matchedCount: "118 / 125",
+      sampleRealQ: "Q2(a) [14 Marks]: Compute initial carrying amount of PPE & unwinding of decommissioning provision under Ind AS 16 & Ind AS 37.",
+      sampleNexqQ: "NexQ Mock #4 Q1(b): Identical decommissioning PV table with 8% pre-tax discount rate & Year-1 finance cost unwinding rubric.",
+      matchType: "Direct Structural & Numerical Match (96% Similarity)",
+    },
+    levels: [
+      {
+        id: "final",
+        label: "CA Final (New Scheme)",
+        groups: "Group 1, Group 2 & Paper-6 IBS",
+        subjects: [
+          { code: "Paper 1", name: "Financial Reporting (FR)", tags: ["Ind AS 115/116/109", "300-DPI Ledger Zoom", "30:70 Hybrid"] },
+          { code: "Paper 2", name: "Advanced Financial Management (AFM)", tags: ["Forex & Derivatives", "Step-Wise Formula Audit", "Working Notes"] },
+          { code: "Paper 3", name: "Advanced Auditing, Assurance & Ethics", tags: ["SA Citation Matcher", "Statutory Language Fix", "Ethics Clauses"] },
+          { code: "Paper 4", name: "Direct Tax Laws & International Taxation", tags: ["Attempt-Aware Finance Act Engine", "Total Income Steps", "DTAA"] },
+          { code: "Paper 5", name: "Indirect Tax Laws (GST & Customs)", tags: ["ITC & Place of Supply", "Amended Notifications", "Exemption Steps"] },
+          { code: "Paper 6", name: "Integrated Business Solutions (IBS)", tags: ["Multi-Disciplinary Case Study", "CasePassage Vault", "Open-Book Rubric"] },
+        ],
+      },
+      {
+        id: "inter",
+        label: "CA Intermediate",
+        groups: "Group 1 & Group 2 (All 6 Papers)",
+        subjects: [
+          { code: "Paper 1", name: "Advanced Accounting", tags: ["AS Citations", "Amalgamation & Branch", "Step Marks"] },
+          { code: "Paper 2", name: "Corporate and Other Laws", tags: ["Companies Act Sec Check", "Legal Terminology Audit", "30% Case MCQs"] },
+          { code: "Paper 3", name: "Taxation (Income Tax + GST)", tags: ["Attempt-Scoped Tax Amendments", "50:50 Split", "Computation Steps"] },
+          { code: "Paper 4", name: "Cost and Management Accounting", tags: ["Marginal & Standard Costing", "Variance Formulas", "Working Notes"] },
+          { code: "Paper 5", name: "Auditing and Ethics", tags: ["SA Keywords", "Bookish Language Enhancer", "Case Study MCQs"] },
+          { code: "Paper 6", name: "Financial Management & Strategic Mgt", tags: ["Ratio & Capital Budgeting", "SM Keyword Precision", "50:50 Split"] },
+        ],
+      },
+      {
+        id: "foundation",
+        label: "CA Foundation",
+        groups: "All 4 Papers (Subjective + Objective)",
+        subjects: [
+          { code: "Paper 1", name: "Accounting", tags: ["Ledger & Trial Balance Steps", "Partnership & Company Accounts"] },
+          { code: "Paper 2", name: "Business Laws", tags: ["Contract Act & Sale of Goods", "Case-Law Format Grader"] },
+          { code: "Paper 3", name: "Quantitative Aptitude", tags: ["Unlimited JIT MCQ Pipeline", "Maths, LR & Statistics"] },
+          { code: "Paper 4", name: "Business Economics", tags: ["Peer Cohort Speed Telemetry", "SM-2 Spaced Repetition Vault"] },
+        ],
+      },
+    ],
+    plans: [
+      {
+        name: "Free Starter Grant (On Signup)",
+        badge: "100% FREE • NO CARD REQUIRED",
+        price: "₹0",
+        unit: "/ 30 Free Welcome Tokens + 365d MCQ Arena",
+        desc: "Verify your WhatsApp number and immediately unlock 30 Welcome Tokens—enough for 6 Priority (1-Hr) or 15 Economy (24-Hr) descriptive paper evaluations!",
+        features: [
+          "6 Priority (or 15 Economy) Descriptive Evaluations Free",
+          "365 Days Unlimited Chapter-Wise & Case-Scenario MCQs",
+          "Diagnostic Syllabus Heatmap & SM-2 Revision Vault",
+          "National, State & District Scholars Arena Leaderboard",
+          "Drag-and-Drop Smart Mock Planner & Leave Recalculator",
+        ],
+        popular: false,
+      },
+      {
+        name: "Pay-As-You-Go FEFO Token Packs",
+        badge: "LOWEST PRICE IN INDIA • ₹20 / TEST",
+        price: "₹20",
+        unit: "per Economy Test (2 Tokens) • ₹50 Priority (5 Tokens)",
+        desc: "Why pay ₹2,000 upfront for tests you might not finish? Top up tokens starting at ₹50. Purchased tokens NEVER expire and use FEFO protection.",
+        features: [
+          "Economy 24h Check: 2 Tokens (₹20) | Priority 1h: 5 Tokens (₹50)",
+          "Instant 5-Minute Express Grading: 10 Tokens (₹100)",
+          "Upload Official ICAI BoS MTP Series I & II, RTPs, or Past Papers",
+          "Custom Mock PDF Builder (Choose Chapters & 30m–180m Duration)",
+          "1-Click Supreme AI Revaluation (Auto-Refunded if Score Shifts ≥10%)",
+        ],
+        popular: true,
+      },
+      {
+        name: "5+2 Pass Challenge Bundle",
+        badge: "ELIGIBLE FOR ₹1,00,000 PASS GUARANTEE",
+        price: "₹1,499",
+        unit: "/ group (All Subjects + Bonus Tokens)",
+        desc: "Complete 5 Modular Unit Tests + 2 Full-Syllabus 100-Mark Mocks per paper + Official ICAI MTP Series I & II with our ₹1 Lakh Pass Guarantee.",
+        features: [
+          "Backed by the ₹1,00,000 Risk-Reversal Pass Challenge",
+          "Printable Official ICAI Cover + Ruled Working-Note Booklets",
+          "4 Hybrid Modes: CBT + Paper, OMR + Booklet, or 100% Plain Paper",
+          "Continuous-Elo Mastery Tracking across Every Syllabus Concept",
+          "Real Exam Coverage Audit + Socratic AI Tutor on Every Question",
+        ],
+        popular: false,
+      },
+    ],
+    features: [
+      "Ind AS & SA Citation Audits",
+      "Step-Wise Working Note Marks",
+      "ICAI 30:70 Hybrid Scheme Calibration",
+    ],
+    pricing: "Starts at ₹0 (5+ Free Tests)",
+    checkoutUrl: "https://app.nexqai.in/login?exam=ca",
   },
   cs: {
     slug: "cs",
     name: "CS Executive & Professional",
-    title: "CS AI Case-Law & Drafting Evaluation",
-    description: "Evaluate your Company Law board resolutions, legal language, and NCLT/SC citations in 60s.",
+    title: "CS AI Case-Law, Drafting & Resolution Evaluator",
+    subtitle: "ICSI 2022 New Syllabus • 20% MCQ + 80% Descriptive Step Engine",
+    description:
+      "Start with 30 Free Welcome Tokens (up to 15 paper evaluations) + Unlimited MCQ Arena. Evaluate Company Law resolutions, NCLT citations, and legal drafting in 60s.",
     examBody: "ICSI",
-    activeCampaign: { enabled: false },
+    activeCampaign: {
+      enabled: true,
+      bannerText: "FREE SIGNUP GRANT: Get 30 Free Evaluation Tokens + Unlimited ICSI MCQ Arena!",
+      promoCode: "ICSI30",
+    },
+    stats: [
+      { value: "5+ Free", label: "Descriptive Evaluations on Signup" },
+      { value: "₹20 / Test", label: "Economy Token Grading" },
+      { value: "Unlimited", label: "JIT Case-Law MCQ Pipeline" },
+      { value: "93.5%", label: "Audited ICSI Exam Coverage" },
+    ],
     features: ["Resolution Format Grader", "Companies Act Section Check", "Case-Law Precedent Matcher"],
-    pricing: "₹1,499 / module",
-    checkoutUrl: "https://app.nexqai.in/enroll?exam=cs"
+    pricing: "Starts at ₹0 (30 Free Tokens)",
+    checkoutUrl: "https://app.nexqai.in/login?exam=cs",
   },
   cma: {
     slug: "cma",
     name: "CMA Inter & Final",
-    title: "CMA Step-Wise Numerical Evaluator",
-    description: "Awards partial step marks for Cost Sheet formulas even when final balance totals diverge.",
+    title: "CMA Step-Wise Numerical & Cost Sheet AI Grader",
+    subtitle: "ICMAI Syllabus 2022 • Cost Accounting Standards & Working Note Auditor",
+    description:
+      "Start with 30 Free Welcome Tokens + Unlimited MCQ Practice. Awards partial step marks for Cost Sheet formulas and variance tables even when final totals diverge.",
     examBody: "ICMAI",
-    activeCampaign: { enabled: false },
+    activeCampaign: {
+      enabled: true,
+      bannerText: "FREE SIGNUP GRANT: Get 30 Free Evaluation Tokens + Unlimited ICMAI MCQ Arena!",
+      promoCode: "ICMAI30",
+    },
+    stats: [
+      { value: "5+ Free", label: "Descriptive Evaluations on Signup" },
+      { value: "₹20 / Test", label: "Economy Token Grading" },
+      { value: "CAS 1–24", label: "Cost Standard Verification" },
+      { value: "95.0%", label: "Audited ICMAI Exam Coverage" },
+    ],
     features: ["Cost Sheet Formula Audit", "Variance Step Marking", "CAS Standard Verification"],
-    pricing: "₹1,499 / module",
-    checkoutUrl: "https://app.nexqai.in/enroll?exam=cma"
+    pricing: "Starts at ₹0 (30 Free Tokens)",
+    checkoutUrl: "https://app.nexqai.in/login?exam=cma",
   },
   upsc: {
     slug: "upsc",
-    name: "UPSC CSE Mains",
-    title: "UPSC GS Mains AI Answer Evaluation",
-    description: "Multidimensional structural evaluation for GS I-IV and Essay papers.",
+    name: "UPSC CSE Mains & Prelims",
+    title: "UPSC GS Mains QCAB Evaluator & Dual-Axis Prelims Engine",
+    subtitle: "GS I–IV, Ethics & Essay Grader + Static-Linked Current Affairs Dossiers",
+    description:
+      "Start with 30 Free Welcome Tokens + Unlimited Prelims JIT MCQs. Print official fixed-space UPSC QCAB booklets, get 60s multidimensional Mains grading, and master Current Affairs linked to static concepts.",
     examBody: "UPSC",
     activeCampaign: {
-      enabled: false,
-      bannerText: "MAINS CRASH COURSE LIVE.",
-      promoCode: "MAINS100",
+      enabled: true,
+      bannerText: "FREE SIGNUP GRANT: Get 30 Free Mains Evaluation Tokens + Unlimited Prelims Trap-MCQ Arena!",
+      promoCode: "UPSC30",
     },
-    features: ["Directive Word Alignment", "Constitutional Article/Data Mapping", "Topper Percentile Benchmarking"],
-    pricing: "₹1,999 / test",
-    checkoutUrl: "https://app.nexqai.in/enroll?exam=upsc"
-  }
+    stats: [
+      { value: "5+ Free", label: "Mains Booklet Evaluations on Signup" },
+      { value: "₹20 / Test", label: "Economy Token Grading" },
+      { value: "Dual-Axis", label: "Static + Current Affairs Graph" },
+      { value: "91.8%", label: "Audited Prelims & Mains Coverage" },
+    ],
+    features: ["Printable Fixed-Space UPSC QCAB", "360° Mains Multi-Perspective Matrix", "National/State/District Rank Arena"],
+    pricing: "Starts at ₹0 (30 Free Tokens)",
+    checkoutUrl: "https://app.nexqai.in/login?exam=upsc",
+  },
 };
