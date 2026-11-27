@@ -680,7 +680,7 @@ export default function StylishExamPage({ params }: { params: Promise<{ exam: st
                     <p className="text-sm text-slate-300 leading-relaxed">
                       Our Smart Planner automatically partitions all {data.examBody} chapters by historical PYQ
                       weightage into <strong>3 Modular Part Tests + 2 Full-Subject Mocks</strong> per paper. Drag and
-                      drop chapters across tests to match your coaching class progress, generate custom{" "}
+                      drop chapters across tests to match your institute class progress, generate custom{" "}
                       <strong>30m to 180m PDF Mock Papers</strong> on demand, or log a{" "}
                       <strong>Personal Leave / Bunked Test Override</strong> to automatically recalculate your weekly
                       study pace.

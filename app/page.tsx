@@ -9,7 +9,7 @@ const IMAGES = {
   consensusArchitecture: "/images/consensus-architecture.jpg",
   stepMarkingMacro: "/images/step-marking-macro.jpg",
   passChallengeBadge: "/images/pass-challenge-badge.jpg",
-  coachingDashboard: "/images/coaching-dashboard.jpg",
+  instituteDashboard: "/images/institute-dashboard.jpg",
 };
 
 export default function MarketingHome() {
@@ -241,8 +241,8 @@ export default function MarketingHome() {
       a: "Every evaluated submission includes a 1-click 'Apply for Supreme AI Revaluation' button. A fresh de-novo audit is executed by our Supreme Appeals Examiner model. If your total score shifts by 10% or more, your revaluation tokens are automatically refunded to your wallet.",
     },
     {
-      q: "How can coaching institutes use the B2B Coaching Portal?",
-      a: "Coaching academies get a white-labeled subdomain (e.g., youracademy.nexqai.in) or custom domain, CSV bulk student roster provisioning, multi-PDF offline exam center batch booklet uploading, Net-30 postpaid credit billing, and cohort bell-curve analytics.",
+      q: "How can institute institutes use the B2B institute Portal?",
+      a: "instituteeee academies get a white-labeled subdomain (e.g., youracademy.nexqai.in) or custom domain, CSV bulk student roster provisioning, multi-PDF offline exam center batch booklet uploading, Net-30 postpaid credit billing, and cohort bell-curve analytics.",
     },
   ];
 
@@ -300,7 +300,7 @@ export default function MarketingHome() {
               href={`${APP_URL}/institute/login`}
               className="hidden md:inline-flex px-4 py-2 text-xs sm:text-sm font-bold text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-950/40 transition-colors"
             >
-              Coaching Portal
+              instituteeeeee Portal
             </Link>
             <Link
               href={`${APP_URL}/login`}
@@ -792,7 +792,7 @@ export default function MarketingHome() {
         </section>
 
         {/* ================================================================= */}
-        {/* WINDOW 5: B2B COACHING PORTAL (IMAGE 5) + SEO FAQ ACCORDION       */}
+        {/* WINDOW 5: B2B institute PORTAL (IMAGE 5) + SEO FAQ ACCORDION       */}
         {/* ================================================================= */}
         <section className="py-20 px-6 bg-slate-900/40 border-t border-slate-800">
           <div className="max-w-6xl mx-auto space-y-20">
@@ -800,13 +800,13 @@ export default function MarketingHome() {
               <div className="grid lg:grid-cols-12 items-center">
                 <div className="lg:col-span-6 p-8 sm:p-12 space-y-5">
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    B2B Coaching Portal • White-Label Subdomains
+                    B2B institute Portal • White-Label Subdomains
                   </span>
                   <h2 className="text-2xl sm:text-4xl font-black text-white leading-tight">
                     Evaluate 10,000+ Student Answer Copies Overnight
                   </h2>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-                    Built for CA, CS, CMA, and UPSC coaching academies. Claim your branded subdomain (e.g.,{" "}
+                    Built for CA, CS, CMA, and UPSC institute academies. Claim your branded subdomain (e.g.,{" "}
                     <code className="text-indigo-300">youracademy.nexqai.in</code>), bulk-import student CSV rosters,
                     drop multi-PDF offline exam center scans, and use Net-30 postpaid credit billing.
                   </p>
@@ -815,15 +815,15 @@ export default function MarketingHome() {
                       href={`${APP_URL}/institute/login`}
                       className="inline-flex px-7 py-3.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-black text-white shadow-lg shadow-indigo-600/30 transition-all"
                     >
-                      Launch Coaching Institute Portal →
+                      Launch institute Institute Portal →
                     </Link>
                   </div>
                 </div>
 
                 <div className="lg:col-span-6 relative h-full min-h-[280px] bg-slate-900">
                   <img
-                    src={IMAGES.coachingDashboard}
-                    alt="NexQ AI Coaching Institute Batch Evaluation Portal"
+                    src={IMAGES.instituteDashboard}
+                    alt="NexQ AI institute Institute Batch Evaluation Portal"
                     className="w-full h-full object-cover object-center"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-transparent to-slate-950/40 hidden lg:block" />
@@ -927,7 +927,7 @@ export default function MarketingHome() {
               UPSC Arena
             </Link>
             <Link href={`${APP_URL}/institute/login`} className="hover:text-white">
-              Coaching Portal
+              institute Portal
             </Link>
           </div>
         </div>
