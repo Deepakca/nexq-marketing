@@ -242,7 +242,7 @@ export default function MarketingHome() {
     },
     {
       q: "How can institute institutes use the B2B institute Portal?",
-      a: "instituteeee academies get a white-labeled subdomain (e.g., youracademy.nexqai.in) or custom domain, CSV bulk student roster provisioning, multi-PDF offline exam center batch booklet uploading, Net-30 postpaid credit billing, and cohort bell-curve analytics.",
+      a: "institute academies get a white-labeled subdomain (e.g., youracademy.nexqai.in) or custom domain, CSV bulk student roster provisioning, multi-PDF offline exam center batch booklet uploading, Net-30 postpaid credit billing, and cohort bell-curve analytics.",
     },
   ];
 
@@ -300,7 +300,7 @@ export default function MarketingHome() {
               href={`${APP_URL}/institute/login`}
               className="hidden md:inline-flex px-4 py-2 text-xs sm:text-sm font-bold text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-950/40 transition-colors"
             >
-              instituteeeeee Portal
+              institute Portal
             </Link>
             <Link
               href={`${APP_URL}/login`}
